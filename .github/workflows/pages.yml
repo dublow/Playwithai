@@ -1,12 +1,12 @@
 name: Deploy to GitHub Pages
 
 # Deploys the static site (portfolio + all project folders) to GitHub Pages.
-# Runs on the default branch. For other branches, use Settings -> Pages ->
-# "Deploy from a branch" instead (this site is 100% static, no build needed).
+# `configure-pages` with enablement:true turns Pages on automatically, so no
+# manual Settings step is needed. The site is 100% static (no build).
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, "claude/**"]
   workflow_dispatch:
 
 permissions:
@@ -27,6 +27,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: .

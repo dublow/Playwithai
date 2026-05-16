@@ -25,18 +25,18 @@ Once GitHub Pages is enabled (see below), the site is live at:
 
 The game is pure HTML5 Canvas — no assets, no dependencies, fully offline-capable.
 
-## 🚀 Enabling GitHub Pages
+## 🚀 GitHub Pages (automatic)
 
-This is a 100% static site, so the simplest setup needs **no build**:
+The workflow at [`.github/workflows/pages.yml`](.github/workflows/pages.yml)
+**enables Pages and deploys automatically** on every push to `main`, `master`,
+or any `claude/**` branch — no manual Settings step required. After the push,
+check the repo's **Actions** tab for the "Deploy to GitHub Pages" run; the
+first run takes 1–2 minutes, then the site is live at
+`https://dublow.github.io/playwithai/`.
 
-1. Go to the repo **Settings → Pages**.
-2. Under **Build and deployment → Source**, choose **Deploy from a branch**.
-3. Select the branch you want to publish (e.g. `main`) and folder **`/ (root)`**, then **Save**.
-4. Wait ~1 minute, then open `https://dublow.github.io/playwithai/`.
-
-Alternatively, a GitHub Actions workflow is included at
-[`.github/workflows/pages.yml`](.github/workflows/pages.yml). If you set
-**Source → GitHub Actions**, every push to `main` will deploy automatically.
+If the Actions run is ever blocked by org policy, the manual fallback is
+**Settings → Pages → Build and deployment → Source: Deploy from a branch**,
+pick the branch and folder **`/ (root)`**, then Save.
 
 ## 🗂️ Repository layout
 
