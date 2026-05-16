@@ -929,9 +929,25 @@ function renderPanel(){
   else if(UI.tab==="goals") body.innerHTML=renderGoalsTab();
   else body.innerHTML=renderLogTab();
 }
+/* dimensionne la grille pour qu'elle TIENNE toujours dans son cadre
+   (sinon elle déborde sur l'objectif et la récolte sur petit écran)   */
+function fitGrid(){
+  const wrap=$("#gridWrap"), g=$("#grid"); if(!wrap||!g) return;
+  const n=S.gridSize;
+  const cs=getComputedStyle(g);
+  const gap=parseFloat(cs.getPropertyValue("--gap"))||6;
+  const pad=parseFloat(cs.getPropertyValue("--pad"))||10;
+  const w=wrap.clientWidth, h=wrap.clientHeight;
+  if(w<=0||h<=0) return;
+  const avail=Math.min(w,h)-2*pad-gap*(n-1)-2; /* -2 : bordure */
+  let cell=Math.floor(avail/n);
+  cell=Math.max(28, Math.min(cell, 108));
+  g.style.setProperty("--cell", cell+"px");
+}
 function render(){
   renderHeader(); renderResources(); renderObjStrip();
   renderGrid(); renderHarvest(); renderPanel();
+  requestAnimationFrame(fitGrid);
 }
 
 /* ===================== MODALS ===================== */
@@ -1044,6 +1060,11 @@ function bind(){
 
   window.addEventListener("beforeunload",saveGame);
   document.addEventListener("visibilitychange",()=>{ if(document.hidden) saveGame(); });
+
+  let rt;
+  const refit=()=>{ clearTimeout(rt); rt=setTimeout(fitGrid,80); };
+  window.addEventListener("resize",refit);
+  window.addEventListener("orientationchange",refit);
 }
 
 /* expose pour les onclick des modales */

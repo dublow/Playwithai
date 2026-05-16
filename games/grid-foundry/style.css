@@ -103,12 +103,15 @@ body{
 .obj-strip b{display:block;font-size:13px;margin-top:1px}
 .obj-strip .prog{margin-left:auto;color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums}
 
-#gridWrap{flex:1 1 auto;display:flex;align-items:center;justify-content:center;min-height:0;width:100%}
+#gridWrap{flex:1 1 auto;display:flex;align-items:center;justify-content:center;
+  min-height:0;width:100%;overflow:hidden;position:relative}
 .grid{
-  display:grid;gap:clamp(5px,.9vmin,9px);
+  --gap:6px;--pad:10px;
+  display:grid;gap:var(--gap);
   grid-template-columns:repeat(var(--n,3),var(--cell));
   grid-template-rows:repeat(var(--n,3),var(--cell));
-  padding:clamp(8px,1.5vmin,14px);
+  padding:var(--pad);
+  max-width:100%;max-height:100%;
   background:
     linear-gradient(var(--line) 1px,transparent 1px) 0 0/var(--cell) var(--cell),
     var(--panel2);
@@ -250,15 +253,20 @@ body{
 
 /* ---------- Mobile ---------- */
 @media (max-width:780px){
-  :root{--cell:clamp(44px,min(20vw,11vh),84px)}
-  #main{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) 40dvh}
+  #main{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) 38dvh}
   #panel{border-left:none;border-top:1px solid var(--line)}
   .brand-txt{display:none}
-  #gridZone{padding:8px}
+  #gridZone{padding:6px;gap:6px}
+  .obj-strip{padding:5px 10px}
+  .harvest{gap:5px;flex-wrap:nowrap}
+  .harvest button{flex:1 1 0;min-width:0;padding:5px 2px}
+  .harvest button small{font-size:9px}
+  .harvest button .rsv{font-size:8px}
   .tab span:last-child{display:none}
   .tab .ms{font-size:20px}
 }
 @media (max-width:780px) and (orientation:landscape){
   #main{grid-template-columns:minmax(0,1fr) 44vw;grid-template-rows:1fr}
   #panel{border-top:none;border-left:1px solid var(--line)}
+  .harvest{flex-wrap:wrap}
 }
