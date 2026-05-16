@@ -10,6 +10,7 @@ games/
   pocket-city/index.html         # 🏙️ Pocket City  — SimCity-style city builder
   super-run/index.html           # 🍄 Super Run     — Mario-style auto-runner
   star-requiem/index.html        # 🚀 Star Requiem  — neon shoot 'em up
+  zelda-like/index.html          # ⚔️ Mini Quest    — Zelda-style adventure
 .github/workflows/deploy.yml     # builds the site → gh-pages branch
 ```
 
@@ -82,5 +83,17 @@ ending — 3 stages and a 3-phase final boss.
 - **Drag to fly**, fire is automatic, **tap to bomb**. See
   [`games/star-requiem/DESIGN.md`](games/star-requiem/DESIGN.md) for design
   notes.
+
+### ⚔️ Mini Quest — `games/zelda-like/`
+
+A Zelda-style top-down action adventure across a 6-room overworld.
+
+- **Touch:** left side of the screen is a floating move stick, right side
+  swings the sword. **Desktop:** arrows / WASD to move, `Space` or `J` to
+  attack.
+- Slash bushes and monsters (octoroks & bats) for rupees, mind the
+  hearts — contact costs health, with brief invulnerability after a hit.
+- Find the hidden **key**, open the **locked door**, and grab the
+  **Triforce** to win.
 
 Enjoy the arcade!
