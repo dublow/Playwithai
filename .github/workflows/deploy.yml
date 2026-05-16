@@ -1,4 +1,4 @@
-name: Deploy Pocket City to GitHub Pages
+name: Deploy Game Arcade to GitHub Pages
 
 on:
   push:
