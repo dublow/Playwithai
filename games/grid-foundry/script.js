@@ -656,7 +656,12 @@ function sos(){
 function tryExpand(){
   const tgt=S.gridSize+1; const e=EXPAND[tgt]; if(!e) return;
   if(!expandReady(tgt)){ toast("Conditions d'expansion non remplies",true); return; }
-  if(!canAfford(e.cost)){ toast("Coût d'expansion non couvert",true); return; }
+  if(!canAfford(e.cost)){
+    const miss=Object.entries(e.cost)
+      .filter(([k,v])=>(S.stock[k]||0)<v)
+      .map(([k,v])=>Math.ceil(v-(S.stock[k]||0))+" "+rname(k)).join(", ");
+    toast("Il manque : "+miss,true); return;
+  }
   pay(e.cost); S.gridSize=tgt;
   log("Colonie étendue en "+tgt+"×"+tgt+" !","info");
   toast("Grille étendue en "+tgt+"×"+tgt);
@@ -707,9 +712,15 @@ function renderHeader(){
   const tgt=S.gridSize+1, btn=$("#expandBtn"), e=EXPAND[tgt];
   if(e && expandReady(tgt) && !S.won){
     btn.classList.remove("hidden");
-    const okCost=canAfford(e.cost);
-    btn.disabled=!okCost;
-    btn.innerHTML=`<span class="ms">open_in_full</span>${e.label}`;
+    const ok=canAfford(e.cost);
+    btn.disabled=false;                       // tap montre ce qui manque
+    btn.classList.toggle("cant",!ok);
+    const costHtml=Object.entries(e.cost).map(([k,v])=>{
+      const miss=(S.stock[k]||0)<v;
+      return `<span class="${miss?'miss':''}">${v}&nbsp;${rname(k)}</span>`;
+    }).join(" · ");
+    btn.innerHTML=`<span class="ms">open_in_full</span>`+
+      `<span class="ex-l"><b>${e.label}</b><small>${costHtml}</small></span>`;
     btn.title=e.label+" — "+Object.entries(e.cost).map(([k,v])=>v+" "+rname(k)).join(", ");
   } else btn.classList.add("hidden");
 }
