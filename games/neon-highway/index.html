@@ -56,10 +56,16 @@
 
   <!-- ===== Touch controls ===== -->
   <div id="controls" class="hide">
-    <div id="steer-left" class="steer" aria-label="Steer left"><span>&#10094;</span></div>
-    <div id="steer-right" class="steer" aria-label="Steer right"><span>&#10095;</span></div>
+    <!-- Left: analog steering joystick -->
+    <div id="joy-zone" aria-label="Steering joystick">
+      <div id="joystick">
+        <span class="joy-ring"></span>
+        <div id="joy-knob"></div>
+      </div>
+    </div>
+    <!-- Right: gas / nitro / brake cluster -->
+    <div id="pedal-boost" class="pedal" aria-label="Nitro">NITRO</div>
     <div id="pedal-brake" class="pedal" aria-label="Brake">BRAKE</div>
-    <div id="pedal-boost" class="pedal" aria-label="Boost">NITRO</div>
     <div id="pedal-gas" class="pedal" aria-label="Accelerate">GAS</div>
   </div>
 
