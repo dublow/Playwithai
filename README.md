@@ -14,6 +14,7 @@ games/
   mega-man/index.html            # 🤖 Bolt Buster   — Mega Man-style platformer
   micro-racers/index.html        # 🏎️ Micro Racers  — Micro Machines-style racer
   faxanadu-like/index.html       # 🌲 Worldtree     — Faxanadu-style action RPG
+  temple-pinball/index.html      # 🏺 Temple Raiders — Indiana-style pinball
 .github/workflows/deploy.yml     # builds the site → gh-pages branch
 ```
 
@@ -134,5 +135,20 @@ A Faxanadu-style **action RPG platformer** up the poisoned world tree.
   and the **Mantra Key**; the key shatters the sealed door.
 - 3 lives, checkpoints (death costs half your gold); reach the root and
   defeat the **Evil One** to save the tree.
+
+### 🏺 Temple Raiders — `games/temple-pinball/`
+
+A 1990s **Indiana-Jones-style pinball machine** with a dot-matrix display
+and CRT scanline look.
+
+- **Touch:** tap/hold the **left half** of the screen for the left flipper,
+  the **right half** for the right flipper. **Desktop:** `A` / `←` and
+  `D` / `→`.
+- **Launch:** hold the **LAUNCH** button (or `Space`) to charge the
+  plunger, release to fire the ball.
+- Hit the **pop bumpers** and **slingshots** for points; knock down the
+  **I-D-O-L** drop-target bank to raise your **multiplier** and light the
+  **left orbit** — shoot it for the **Golden Idol jackpot**.
+- 3 balls, a 7-second ball-save after each launch, and a saved high score.
 
 Enjoy the arcade!
