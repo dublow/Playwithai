@@ -15,6 +15,7 @@ games/
   micro-racers/index.html        # 🏎️ Micro Racers  — Micro Machines-style racer
   faxanadu-like/index.html       # 🌲 Worldtree     — Faxanadu-style action RPG
   temple-pinball/index.html      # 🏺 Temple Raiders — Indiana-style pinball
+  royaume/index.html             # 🏰 Royaume       — medieval strategy / idle
 .github/workflows/deploy.yml     # builds the site → gh-pages branch
 ```
 
@@ -150,5 +151,22 @@ and CRT scanline look.
   **I-D-O-L** drop-target bank to raise your **multiplier** and light the
   **left orbit** — shoot it for the **Golden Idol jackpot**.
 - 3 balls, a 7-second ball-save after each launch, and a saved high score.
+
+### 🏰 Royaume — `games/royaume/`
+
+A simple, addictive **medieval strategy & idle-management** game (vanilla
+HTML/CSS/JS) in a dark fantasy theme.
+
+- **Harvest** wood, stone, food and gold by hand, then build six
+  **buildings** (lumberjack, farm, mine, market, barracks, castle) that
+  auto-produce — each with progressive cost scaling.
+- **Recruit** peasants, archers and knights to grow your military power,
+  then hit **Attack**: a simple auto-resolved combat against scaling
+  enemies, with loot, XP and casualties.
+- Research a **4-node tech tree** (axes, agriculture, armour, trade) for
+  permanent bonuses.
+- A guided **objective system** always points to the next goal; reward
+  toasts, an event log, **localStorage autosave**, reset, and **offline
+  progression** (50% efficiency, capped at 8h).
 
 Enjoy the arcade!
