@@ -998,7 +998,7 @@ function fitGrid(){
   if(w<=0||h<=0) return;
   const avail=Math.min(w,h)-2*pad-gap*(n-1)-2; /* -2 : bordure */
   let cell=Math.floor(avail/n);
-  cell=Math.max(28, Math.min(cell, 108));
+  cell=Math.max(30, Math.min(cell, 124));
   g.style.setProperty("--cell", cell+"px");
 }
 function render(){

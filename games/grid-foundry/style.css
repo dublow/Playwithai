@@ -44,24 +44,24 @@ body{
 .brand-txt strong{font-size:clamp(14px,1.4vw,17px);letter-spacing:1.5px}
 .brand-txt span{font-size:11px;color:var(--muted);letter-spacing:.4px}
 
+/* bande ressources : posée au-dessus de la grille, lisible, 1 ligne */
 .resbar{
-  flex:1 1 auto;min-width:0;display:flex;flex-wrap:nowrap;gap:6px;
-  align-items:center;justify-content:flex-start;
-  overflow-x:auto;overflow-y:hidden;padding:3px 2px;
+  flex:0 0 auto;width:100%;max-width:760px;min-width:0;
+  display:flex;flex-wrap:nowrap;gap:7px;align-items:center;
+  overflow-x:auto;overflow-y:hidden;padding:2px;
   scrollbar-width:none;-webkit-overflow-scrolling:touch;
-  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 14px,#000 calc(100% - 14px),transparent 100%);
-          mask-image:linear-gradient(90deg,transparent 0,#000 14px,#000 calc(100% - 14px),transparent 100%);
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 18px,#000 calc(100% - 18px),transparent);
+          mask-image:linear-gradient(90deg,transparent,#000 18px,#000 calc(100% - 18px),transparent);
 }
 .resbar::-webkit-scrollbar{display:none}
-.chip{flex:0 0 auto}
 .chip{
-  display:flex;align-items:center;gap:5px;
+  flex:0 0 auto;display:flex;align-items:center;gap:6px;
   background:var(--panel);border:1px solid var(--line);
-  border-radius:999px;padding:3px 9px 3px 7px;font-size:12px;white-space:nowrap;
+  border-radius:999px;padding:5px 12px 5px 9px;font-size:13.5px;white-space:nowrap;
 }
-.chip .ms{font-size:15px;color:var(--acc2)}
+.chip .ms{font-size:18px;color:var(--acc2)}
 .chip b{font-weight:600;font-variant-numeric:tabular-nums}
-.chip .rate{font-size:10.5px;font-variant-numeric:tabular-nums}
+.chip .rate{font-size:11px;font-variant-numeric:tabular-nums}
 .chip .rate.pos{color:var(--good)} .chip .rate.neg{color:var(--warn)} .chip .rate.zero{color:var(--dim)}
 .chip.t1 .ms{color:#ffb74d}.chip.t2 .ms{color:#7ee7ff}.chip.t3 .ms{color:#c69bff}
 .chip.fin .ms{color:var(--gold)}
@@ -106,16 +106,16 @@ body{
 }
 #gridZone{
   display:flex;flex-direction:column;align-items:center;
-  padding:clamp(8px,1.6vh,18px) 12px;gap:clamp(8px,1.4vh,16px);min-height:0;
+  padding:10px clamp(10px,2vw,20px);gap:9px;min-height:0;
 }
 .obj-strip{
-  width:100%;max-width:560px;display:flex;align-items:center;gap:10px;
+  width:100%;max-width:760px;display:flex;align-items:center;gap:11px;
   background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--acc);
-  border-radius:var(--r);padding:7px 12px;font-size:12.5px;
+  border-radius:var(--r);padding:8px 14px;font-size:13px;
 }
-.obj-strip .ms{color:var(--acc);font-size:18px}
+.obj-strip .ms{color:var(--acc);font-size:20px}
 .obj-strip .lbl{color:var(--muted);font-size:10px;letter-spacing:1px;text-transform:uppercase}
-.obj-strip b{display:block;font-size:13px;margin-top:1px}
+.obj-strip b{display:block;font-size:14px;margin-top:1px}
 .obj-strip .prog{margin-left:auto;color:var(--dim);font-size:11px;font-variant-numeric:tabular-nums}
 
 #gridWrap{flex:1 1 auto;display:flex;align-items:center;justify-content:center;
@@ -123,12 +123,12 @@ body{
 .grid{
   --gap:6px;--pad:10px;
   display:grid;gap:var(--gap);
-  grid-template-columns:repeat(var(--n,3),var(--cell));
-  grid-template-rows:repeat(var(--n,3),var(--cell));
+  grid-template-columns:repeat(var(--n,3),var(--cell,64px));
+  grid-template-rows:repeat(var(--n,3),var(--cell,64px));
   padding:var(--pad);
   max-width:100%;max-height:100%;
   background:
-    linear-gradient(var(--line) 1px,transparent 1px) 0 0/var(--cell) var(--cell),
+    linear-gradient(var(--line) 1px,transparent 1px) 0 0/var(--cell,64px) var(--cell,64px),
     var(--panel2);
   border:1px solid var(--line2);border-radius:14px;
   box-shadow:inset 0 0 60px rgba(0,0,0,.5);
@@ -162,18 +162,18 @@ body{
 .cell .mult.dn{color:var(--warn)}
 
 .harvest{
-  width:100%;max-width:560px;display:flex;gap:7px;flex-wrap:wrap;justify-content:center;
+  width:100%;max-width:760px;display:flex;gap:8px;flex-wrap:nowrap;justify-content:center;
 }
 .harvest button{
-  flex:1 1 92px;min-width:84px;display:flex;flex-direction:column;align-items:center;gap:2px;
+  flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;
   background:var(--panel);border:1px solid var(--line);border-radius:var(--r);
-  padding:7px 4px;cursor:pointer;color:var(--txt);font-family:inherit;transition:.12s;
+  padding:9px 4px;cursor:pointer;color:var(--txt);font-family:inherit;transition:.12s;
 }
 .harvest button:hover{border-color:var(--acc);transform:translateY(-1px)}
 .harvest button:active{transform:scale(.96)}
-.harvest button .ms{font-size:20px;color:var(--acc)}
-.harvest button small{font-size:10px;color:var(--muted)}
-.harvest button .rsv{font-size:9px;color:var(--dim)}
+.harvest button .ms{font-size:23px;color:var(--acc)}
+.harvest button small{font-size:11.5px;color:var(--muted)}
+.harvest button .rsv{font-size:9.5px;color:var(--dim)}
 .harvest button.sos .ms{color:var(--gold)}
 .harvest button:disabled{opacity:.45;cursor:not-allowed;transform:none}
 
@@ -285,22 +285,41 @@ body{
 .modal-card p{font-size:13px;color:var(--muted);line-height:1.6;margin-bottom:12px}
 .modal-card .row-btn{margin-top:6px}
 
-/* ---------- Mobile ---------- */
-@media (max-width:780px){
-  #main{grid-template-columns:1fr;grid-template-rows:minmax(0,1fr) 38dvh}
-  #panel{border-left:none;border-top:1px solid var(--line)}
-  .brand-txt{display:none}
-  #gridZone{padding:6px;gap:6px}
-  .obj-strip{padding:5px 10px}
-  .harvest{gap:5px;flex-wrap:nowrap}
-  .harvest button{flex:1 1 0;min-width:0;padding:5px 2px}
-  .harvest button small{font-size:9px}
-  .harvest button .rsv{font-size:8px}
-  .tab span:last-child{display:none}
-  .tab .ms{font-size:20px}
+/* ---------- Forced landscape (touch devices) ---------- */
+#rotate{
+  position:fixed;inset:0;z-index:300;display:none;
+  flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;gap:18px;padding:40px;
+  background:radial-gradient(circle at 50% 38%,#13202e 0%,var(--bg) 70%);
+  color:var(--txt);
 }
-@media (max-width:780px) and (orientation:landscape){
-  #main{grid-template-columns:minmax(0,1fr) 44vw;grid-template-rows:1fr}
-  #panel{border-top:none;border-left:1px solid var(--line)}
-  .harvest{flex-wrap:wrap}
+#rotate .rot-ic{font-size:64px;color:var(--acc);
+  animation:rot 2.6s ease-in-out infinite;transform-origin:50% 50%}
+#rotate h2{font-size:21px;letter-spacing:.5px}
+#rotate p{font-size:14px;color:var(--muted);max-width:330px;line-height:1.65}
+@keyframes rot{0%,38%{transform:rotate(0)}62%,100%{transform:rotate(-90deg)}}
+
+/* portrait on a touch device → ask to rotate, hide the game */
+@media (hover:none) and (orientation:portrait){
+  #app{display:none}
+  #rotate{display:flex}
+}
+
+/* touch device in landscape → keep the 2-column layout, tune for thumbs */
+@media (hover:none) and (orientation:landscape){
+  #main{grid-template-columns:minmax(0,1fr) clamp(232px,36vw,344px)}
+  #topbar{padding:6px clamp(8px,1.8vw,16px)}
+  .brand .logo{font-size:26px}
+  .brand-txt strong{font-size:13px}
+  #gridZone{padding:7px 10px;gap:7px}
+  .tab span:last-child{display:none}
+  .tab{padding:8px 4px}
+  .tab .ms{font-size:22px}
+}
+
+/* very short viewports (small phones in landscape): trim chrome */
+@media (hover:none) and (orientation:landscape) and (max-height:380px){
+  .obj-strip{padding:6px 12px}
+  .obj-strip .lbl{display:none}
+  .harvest button .rsv{display:none}
 }
