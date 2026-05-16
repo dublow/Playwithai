@@ -209,13 +209,19 @@ function layoutPads(){
 function ptPos(e){ const b=cv.getBoundingClientRect(); return [e.clientX-b.left,e.clientY-b.top]; }
 function hitBtn(x,y){ for(const k in BTN){ const b=BTN[k];
   if((x-b.x)**2+(y-b.y)**2 < (b.r*1.3)**2) return k; } return null; }
+let _smx=0,_smy=0,_smT=0;                  // frame-rate-independent stick smoothing
 function stickAxis(){
-  if(!stick) return [0,0];
+  const now=performance.now();
+  if(!stick){ _smx=0; _smy=0; _smT=now; return [0,0]; }
   const dx=stick.dx, dy=stick.dy, d=Math.hypot(dx,dy);
-  if(d<=0) return [0,0];
-  let m=(d/STK_R-STK_DZ)/(STK_SAT-STK_DZ);
-  if(m<=0) return [0,0];
-  return [dx/d*Math.min(1,m), dy/d*Math.min(1,m)];
+  let tx=0,ty=0;
+  if(d>0){ let m=(d/STK_R-STK_DZ)/(STK_SAT-STK_DZ);
+    if(m>0){ if(m>1)m=1; tx=dx/d*m; ty=dy/d*m; } }
+  let dt=(now-_smT)/1000; _smT=now;
+  if(dt>0.1) dt=0.1;
+  if(dt>0){ const k=1-Math.exp(-dt/0.07);
+    _smx+=(tx-_smx)*k; _smy+=(ty-_smy)*k; }
+  return [_smx,_smy];
 }
 cv.addEventListener("pointerdown",e=>{
   cv.setPointerCapture(e.pointerId);
