@@ -8,6 +8,7 @@ A growing collection of AI-built games and apps. **Each project lives in its own
 |---|---|---|
 | **Super Run** | [`mario-game/`](mario-game/) | A Mario-style **one-tap auto-runner** for iPhone & desktop — Mario runs by himself, tap to jump, stomp enemies and grab coins across 2 levels. |
 | **Star Requiem** | [`shmup/`](shmup/) | A neon **shoot 'em up** with intro, upgrade bay, story & ending — 3 stages and a 3-phase final boss. Drag to fly, auto-fire, tap to bomb. See [`shmup/DESIGN.md`](shmup/DESIGN.md). |
+| **Grid Foundry** | [`industry/`](industry/) | A compact **strategic industrial puzzle** (Factorio/Shapez/Slipways-inspired) — production chains on a 3×3→5×5 grid, neighbour bonuses, specializations, 3 end-game tech axes. One screen, no scroll, autosaved. |
 
 ## ▶️ Play it
 
@@ -58,6 +59,10 @@ pick the branch and folder **`/ (root)`**, then Save.
 │   ├── style.css
 │   ├── game.js
 │   └── DESIGN.md         # design & dev documentation
+├── industry/             # Grid Foundry industrial puzzle
+│   ├── index.html
+│   ├── style.css
+│   └── script.js
 ├── .github/workflows/    # Optional Pages deploy workflow
 └── .nojekyll             # Serve files as-is (skip Jekyll)
 ```
