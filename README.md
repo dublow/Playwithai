@@ -7,6 +7,7 @@ A growing collection of AI-built games and apps. **Each project lives in its own
 | Project | Folder | Description |
 |---|---|---|
 | **Super Run** | [`mario-game/`](mario-game/) | A Mario-style **one-tap auto-runner** for iPhone & desktop — Mario runs by himself, tap to jump, stomp enemies and grab coins across 2 levels. |
+| **Star Requiem** | [`shmup/`](shmup/) | A neon **shoot 'em up** with intro, upgrade bay, story & ending — 3 stages and a 3-phase final boss. Drag to fly, auto-fire, tap to bomb. See [`shmup/DESIGN.md`](shmup/DESIGN.md). |
 
 ## ▶️ Play it
 
@@ -14,6 +15,7 @@ Once GitHub Pages is enabled (see below), the site is live at:
 
 - **Portfolio:** `https://dublow.github.io/playwithai/`
 - **Super Run:** `https://dublow.github.io/playwithai/mario-game/`
+- **Star Requiem:** `https://dublow.github.io/playwithai/shmup/`
 
 > Tip on iPhone: open the link in Safari, tap **Share → Add to Home Screen** to play full‑screen like a native app.
 
@@ -51,6 +53,11 @@ pick the branch and folder **`/ (root)`**, then Save.
 │   ├── index.html
 │   ├── style.css
 │   └── game.js
+├── shmup/                # Star Requiem shoot 'em up
+│   ├── index.html
+│   ├── style.css
+│   ├── game.js
+│   └── DESIGN.md         # design & dev documentation
 ├── .github/workflows/    # Optional Pages deploy workflow
 └── .nojekyll             # Serve files as-is (skip Jekyll)
 ```
