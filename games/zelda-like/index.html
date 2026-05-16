@@ -569,9 +569,10 @@ function loop(now){
   requestAnimationFrame(loop);
 }
 // idle backdrop until start
+openedDoors=new Set(); cutBush=new Set(); keyTaken=false;
 room=buildGrid(0,0); rx=0; ry=0;
 hero={x:2.5,y:5.5,dir:"down",atk:0,inv:0,hp:5,maxhp:5,rupees:0,key:false};
-foes=[]; items=[]; fx=[]; openedDoors=new Set(); cutBush=new Set();
+foes=[]; items=[]; fx=[];
 requestAnimationFrame(loop);
 })();
 </script>
