@@ -386,7 +386,8 @@ function freshState(){
 const UI = {tab:"build", selected:null, inspect:null, hover:null};
 let NET = {};            // débit net /sec calculé chaque tick
 let ACTIVE = {};         // id -> bool (bâtiment actif ce tick)
-let MULT = {};           // id -> multiplicateur de production effectif (affichage)
+let _gridHTML = null;    // cache : évite de réécrire la grille sans changement
+const STARVE_SHOW = 3;   // ticks de pénurie continue avant l'état "à l'arrêt"
 
 /* ===================== HELPERS ===================== */
 const $  = s => document.querySelector(s);
@@ -530,7 +531,7 @@ function tick(silent){
     order[b.type]=(order[b.type]||0); b._eff=effFactor(order[b.type]); order[b.type]++;
   });
 
-  NET={}; ACTIVE={}; MULT={};
+  NET={}; ACTIVE={};
   // traitement par tier croissant : un bâtiment de tier bas alimente le tier au-dessus
   const seq=[...S.buildings].sort((a,b)=>
     (BUILDINGS[a.type].tier-BUILDINGS[b.type].tier)||(a.order-b.order));
@@ -553,18 +554,21 @@ function tick(silent){
       NET[k]=(NET[k]||0)-cons[k];
     }
     if(def.produce){
-      let shown=1, ns=0;
       for(const k in def.produce){
-        const m=prodMult(bo,k)*specMult(k);
-        const amt=def.produce[k]*m*b._eff;
+        const amt=def.produce[k]*prodMult(bo,k)*specMult(k)*b._eff;
         S.stock[k]=Math.min(1e9,(S.stock[k]||0)+amt);
         S.total[k]=(S.total[k]||0)+amt;
         NET[k]=(NET[k]||0)+amt;
-        shown=m*b._eff; ns++;
       }
-      MULT[b.id]=shown;
     }
   }
+  // hystérésis d'affichage : on ne signale "à l'arrêt" qu'après une
+  // pénurie SOUTENUE (évite le clignotement quand prod ≈ conso)
+  for(const b of S.buildings){
+    if(b.paused || !BUILDINGS[b.type].consume){ b._starve=0; continue; }
+    b._starve = ACTIVE[b.id] ? 0 : (b._starve||0)+1;
+  }
+
   // garde-fous : pas de stock négatif
   for(const k in S.stock) if(S.stock[k]<0) S.stock[k]=0;
 
@@ -738,6 +742,7 @@ function renderObjStrip(){
 }
 function renderGrid(){
   const g=$("#grid"); g.style.setProperty("--n",S.gridSize);
+  const BMAP=computeBonuses(S.buildings.map(b=>({id:b.id,type:b.type,r:b.r,c:b.c})));
   const selDef=UI.selected?BUILDINGS[UI.selected]:null;
   // preview bonus si on survole une case vide avec un bâtiment sélectionné
   let prevMap=null;
@@ -754,8 +759,14 @@ function renderGrid(){
     const b=at(r,c), key=r+","+c;
     if(b){
       const d=BUILDINGS[b.type];
-      const idle=!ACTIVE[b.id]&&!b.paused&&d.consume;
-      const m=MULT[b.id]||1;
+      // état "à l'arrêt" lissé par hystérésis (pas de clignotement)
+      const idle=!!d.consume && !b.paused && (b._starve||0)>=STARVE_SHOW;
+      // multiplicateur DÉTERMINISTE : dépend du placement, pas du tick
+      let m=1;
+      if(d.produce){
+        const k=Object.keys(d.produce)[0];
+        m=prodMult(BMAP[b.id],k)*specMult(k)*(b._eff||1);
+      }
       const cls=["cell","filled"];
       if(b.paused) cls.push("paused");
       if(idle) cls.push("idle");
@@ -791,7 +802,7 @@ function renderGrid(){
       html+=`<div class="${cls.join(' ')}${extra}" data-c="${key}"></div>`;
     }
   }
-  g.innerHTML=html;
+  if(html!==_gridHTML){ g.innerHTML=html; _gridHTML=html; }
 }
 
 function ioLine(obj,kind){
@@ -889,14 +900,15 @@ function renderInspect(b){
   const d=BUILDINGS[b.type];
   const bonus=computeBonuses(S.buildings.map(x=>({id:x.id,type:x.type,r:x.r,c:x.c})));
   const bo=bonus[b.id];
-  const idle=!ACTIVE[b.id]&&!b.paused&&d.consume;
+  const eff=b._eff||1;
+  const idle=!!d.consume && !b.paused && (b._starve||0)>=STARVE_SHOW;
   let h=`<div class="dtl"><h3><span class="ms">${d.icon}</span>${d.name}</h3>
     <p class="desc">${d.desc}</p>`;
   h+=`<div class="kv"><span>État</span><b class="${idle?'neg':(b.paused?'':'pos')}">${
      b.paused?"En pause":(idle?"À l'arrêt (ressources)":"En activité")}</b></div>`;
-  h+=`<div class="kv"><span>Rendement (exemplaire)</span><b>${Math.round(b._eff*100)}%</b></div>`;
+  h+=`<div class="kv"><span>Rendement (exemplaire)</span><b>${Math.round(eff*100)}%</b></div>`;
   if(d.produce) for(const k in d.produce){
-    const m=prodMult(bo,k)*specMult(k)*b._eff;
+    const m=prodMult(bo,k)*specMult(k)*eff;
     h+=`<div class="kv"><span>Production ${rname(k)}</span>
       <b class="${m>=1?'pos':'neg'}">${(d.produce[k]*m).toFixed(2)}/s (${m>=1?'+':''}${Math.round((m-1)*100)}%)</b></div>`;
   }
