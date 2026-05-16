@@ -1,0 +1,34 @@
+name: Deploy to GitHub Pages
+
+# Deploys the static site (portfolio + all project folders) to GitHub Pages.
+# Runs on the default branch. For other branches, use Settings -> Pages ->
+# "Deploy from a branch" instead (this site is 100% static, no build needed).
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - id: deployment
+        uses: actions/deploy-pages@v4
