@@ -184,15 +184,27 @@ function pollInput(){
 }
 // Touch control: floating joystick (left) + lettered buttons (right)
 let stick=null, STK_R=60;
+const STK_DZ=0.15, STK_SAT=0.95;          // scaled radial dead zone + saturation
+let SAFE={r:0,b:0,l:0};
+const _safeProbe=document.createElement("div");
+_safeProbe.style.cssText="position:fixed;left:0;top:0;width:0;height:0;"+
+ "visibility:hidden;pointer-events:none;padding:0 env(safe-area-inset-right) "+
+ "env(safe-area-inset-bottom) env(safe-area-inset-left);";
+(document.body||document.documentElement).appendChild(_safeProbe);
+function readSafe(){ const s=getComputedStyle(_safeProbe);
+  SAFE.r=parseFloat(s.paddingRight)||0;
+  SAFE.b=parseFloat(s.paddingBottom)||0;
+  SAFE.l=parseFloat(s.paddingLeft)||0; }
 const BTN={B:{x:0,y:0,r:0,id:null,on:0,lbl:"B"},
            A:{x:0,y:0,r:0,id:null,on:0,lbl:"A"}};
 function layoutPads(){
-  const S=SCR_W,T=SCR_H, r=Math.max(38,Math.min(58,S*0.075));
-  const by=T-Math.max(26,T*0.06);
-  BTN.A.r=r*1.2; BTN.A.x=S-BTN.A.r-26; BTN.A.y=by-BTN.A.r;
+  readSafe();
+  const S=SCR_W,T=SCR_H, r=Math.max(48,Math.min(72,S*0.085));
+  const by=T-Math.max(26,T*0.06)-SAFE.b, mR=26+SAFE.r;
+  BTN.A.r=r*1.2; BTN.A.x=S-BTN.A.r-mR; BTN.A.y=by-BTN.A.r;
   if(BTN.B){ BTN.B.r=r; BTN.B.x=BTN.A.x-BTN.A.r-BTN.B.r-18; BTN.B.y=by-BTN.B.r-4; }
   if(BTN.C){ BTN.C.r=r; BTN.C.x=BTN.B.x-BTN.B.r-BTN.C.r-18; BTN.C.y=BTN.B.y; }
-  STK_R=Math.max(48,Math.min(88,S*0.11));
+  STK_R=Math.max(52,Math.min(92,S*0.12));
 }
 function ptPos(e){ const b=cv.getBoundingClientRect(); return [e.clientX-b.left,e.clientY-b.top]; }
 function hitBtn(x,y){ for(const k in BTN){ const b=BTN[k];
@@ -200,19 +212,25 @@ function hitBtn(x,y){ for(const k in BTN){ const b=BTN[k];
 function stickAxis(){
   if(!stick) return [0,0];
   const dx=stick.dx, dy=stick.dy, d=Math.hypot(dx,dy);
-  if(d<STK_R*0.30) return [0,0];
-  const c=Math.min(1,d/STK_R); return [dx/d*c, dy/d*c];
+  if(d<=0) return [0,0];
+  let m=(d/STK_R-STK_DZ)/(STK_SAT-STK_DZ);
+  if(m<=0) return [0,0];
+  return [dx/d*Math.min(1,m), dy/d*Math.min(1,m)];
 }
 cv.addEventListener("pointerdown",e=>{
   cv.setPointerCapture(e.pointerId);
   if(state!=="race"&&state!=="count") return;
   const [x,y]=ptPos(e), k=hitBtn(x,y);
-  if(k){ BTN[k].id=e.pointerId; BTN[k].on=1; return; }
+  if(k){ BTN[k].id=e.pointerId; BTN[k].on=1;
+    navigator.vibrate&&navigator.vibrate(15); return; }
   if(!stick && x<SCR_W*0.6) stick={id:e.pointerId,ox:x,oy:y,dx:0,dy:0};
 },{passive:false});
 cv.addEventListener("pointermove",e=>{
   if(stick && e.pointerId===stick.id){ const [x,y]=ptPos(e);
-    stick.dx=x-stick.ox; stick.dy=y-stick.oy; }
+    let dx=x-stick.ox, dy=y-stick.oy, d=Math.hypot(dx,dy);
+    if(d>STK_R){ stick.ox+=dx*(d-STK_R)/d; stick.oy+=dy*(d-STK_R)/d;
+      dx=x-stick.ox; dy=y-stick.oy; }
+    stick.dx=dx; stick.dy=dy; }
 },{passive:false});
 function endPtr(e){
   if(stick && e.pointerId===stick.id) stick=null;
@@ -492,8 +510,8 @@ function drawStick(){
   let ox,oy,dx=0,dy=0;
   if(stick){ ox=stick.ox; oy=stick.oy; dx=stick.dx; dy=stick.dy;
     const d=Math.hypot(dx,dy); if(d>STK_R){ dx=dx/d*STK_R; dy=dy/d*STK_R; } }
-  else { ox=Math.max(STK_R+24,SCR_W*0.14);
-    oy=SCR_H-Math.max(STK_R+24,SCR_H*0.17); ctx.globalAlpha=0.5; }
+  else { ox=Math.max(STK_R+24+SAFE.l,SCR_W*0.14);
+    oy=SCR_H-Math.max(STK_R+24+SAFE.b,SCR_H*0.17); ctx.globalAlpha=0.5; }
   ctx.lineWidth=3; ctx.strokeStyle="rgba(255,255,255,.30)";
   ctx.beginPath(); ctx.arc(ox,oy,STK_R,0,TAU); ctx.stroke();
   ctx.fillStyle="rgba(255,255,255,.55)";
