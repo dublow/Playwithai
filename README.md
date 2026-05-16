@@ -12,6 +12,7 @@ games/
   star-requiem/index.html        # 🚀 Star Requiem  — neon shoot 'em up
   zelda-like/index.html          # ⚔️ Mini Quest    — Zelda-style adventure
   mega-man/index.html            # 🤖 Bolt Buster   — Mega Man-style platformer
+  micro-racers/index.html        # 🏎️ Micro Racers  — Micro Machines-style racer
 .github/workflows/deploy.yml     # builds the site → gh-pages branch
 ```
 
@@ -107,5 +108,16 @@ A Mega Man-style action platformer through a factory stage with a boss.
 - Dodge spikes (instant death), pits, turrets and hard-hat enemies;
   checkpoints respawn you on death (3 lives).
 - Survive to the arena and drain **Bolt Man's** health bar to win.
+
+### 🏎️ Micro Racers — `games/micro-racers/`
+
+A Micro Machines-style **top-down toy racer** on one twisty circuit.
+
+- **Touch:** ◄ ► steer · **GAS** · **BRAKE** (brake to a stop also reverses).
+  **Desktop:** ←/→ steer, ↑/W gas, ↓/S brake.
+- Race **3 laps** against **3 AI rivals** — stay on the tarmac (grass kills
+  your speed), clip the apexes and bump cleanly.
+- Live **lap counter, position and a minimap**; finish first across the
+  chequered line to take the trophy.
 
 Enjoy the arcade!
