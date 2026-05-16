@@ -4,38 +4,38 @@ on:
   push:
     branches:
       - claude/mobile-city-sim-game-DpDlD
-      - main
   workflow_dispatch:
 
+# Pushing to the gh-pages branch needs write access to repo contents.
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
-# Allow one concurrent deployment, newer runs cancel in-progress ones.
+# One publish at a time; newer runs cancel in-progress ones.
 concurrency:
-  group: pages
+  group: gh-pages
   cancel-in-progress: true
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  publish:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
+      - name: Assemble static site
+        run: |
+          mkdir -p _site
+          cp index.html _site/
+          cp -r games _site/
+          # Serve every file/folder as-is (skip Jekyll processing).
+          touch _site/.nojekyll
 
-      - name: Upload site artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Publish to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          # The whole repo root is the static site (index.html lives here).
-          path: .
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./_site
+          publish_branch: gh-pages
+          # Keep gh-pages as a single tidy commit (no history buildup).
+          force_orphan: true
+          commit_message: "Deploy arcade from ${{ github.sha }}"
