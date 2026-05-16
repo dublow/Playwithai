@@ -77,14 +77,14 @@
       };
     },
     rgbStr(c) { return "rgb(" + c.r + "," + c.g + "," + c.b + ")"; },
-    // colour A->B by `tm` (theme blend) then ->fog by `fog`
-    mixThemed(hexA, hexB, tm, fogHex, fog) {
+    // colour A->B by `tm` (theme blend) then ->fog by `fog`.
+    // `fogRgb` is an {r,g,b} (already blended), NOT a string.
+    mixThemed(hexA, hexB, tm, fogRgb, fog) {
       const base = Util.blendRgb(hexA, hexB, tm);
-      const f = Util.hexToRgb(fogHex);
       return "rgb(" +
-        Math.round(Util.lerp(f.r, base.r, fog)) + "," +
-        Math.round(Util.lerp(f.g, base.g, fog)) + "," +
-        Math.round(Util.lerp(f.b, base.b, fog)) + ")";
+        Math.round(Util.lerp(fogRgb.r, base.r, fog)) + "," +
+        Math.round(Util.lerp(fogRgb.g, base.g, fog)) + "," +
+        Math.round(Util.lerp(fogRgb.b, base.b, fog)) + ")";
     }
   };
 
@@ -1193,8 +1193,14 @@
       let dt = (t - this.last) / 1000;
       this.last = t;
       if (dt > 0.05) dt = 0.05;
-      if (this.state === "playing") this._update(dt);
-      this._render();
+      // A single bad frame must never kill the loop (which would
+      // freeze the screen and make the title tap look unresponsive).
+      try {
+        if (this.state === "playing") this._update(dt);
+        this._render();
+      } catch (err) {
+        if (!this._loggedFrameErr) { this._loggedFrameErr = true; console.error(err); }
+      }
       requestAnimationFrame(n => this._frame(n));
     }
 
@@ -1575,13 +1581,13 @@
       const bl = this._segBlend(seg);
       const pa = seg.dark ? bl.a.dark : bl.a.light;
       const pb = seg.dark ? bl.b.dark : bl.b.light;
-      const fogHex = Util.rgbStr(Util.blendRgb(bl.a.fog, bl.b.fog, bl.t));
+      const fogRgb = Util.blendRgb(bl.a.fog, bl.b.fog, bl.t);
       const tm = bl.t;
 
-      const grass = Util.mixThemed(pa.grass, pb.grass, tm, fogHex, fog);
-      const rumble = Util.mixThemed(pa.rumble, pb.rumble, tm, fogHex, fog);
-      const roadC = Util.mixThemed(pa.road, pb.road, tm, fogHex, fog);
-      const lane = Util.mixThemed(pa.lane, pb.lane, tm, fogHex, fog);
+      const grass = Util.mixThemed(pa.grass, pb.grass, tm, fogRgb, fog);
+      const rumble = Util.mixThemed(pa.rumble, pb.rumble, tm, fogRgb, fog);
+      const roadC = Util.mixThemed(pa.road, pb.road, tm, fogRgb, fog);
+      const lane = Util.mixThemed(pa.lane, pb.lane, tm, fogRgb, fog);
 
       ctx.fillStyle = grass;
       ctx.fillRect(0, p2.y, W, p1.y - p2.y);
