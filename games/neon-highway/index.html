@@ -41,8 +41,9 @@
         <span class="hud-val" id="hud-dist">0<small>m</small></span>
       </div>
       <div class="hud-box hud-cp">
-        <span class="hud-label">CHECKPOINT</span>
-        <span class="hud-val" id="hud-cp">1</span>
+        <span class="hud-label">STAGE</span>
+        <span class="hud-val" id="hud-stage">1/5</span>
+        <span class="hud-biome" id="hud-biome">PACIFIC COAST</span>
       </div>
       <div class="hud-box hud-right">
         <span class="hud-label">SPEED</span>
@@ -120,6 +121,21 @@
       </div>
       <div id="go-newbest" class="blink hide">&#9733; NEW RECORD &#9733;</div>
       <button id="btn-again" class="arcade-btn" type="button">RACE AGAIN</button>
+    </div>
+  </div>
+
+  <!-- ===== Goal / Finish screen ===== -->
+  <div id="screen-finish" class="screen hide">
+    <div class="panel fin-panel">
+      <h2 class="fin-head" id="fin-title">GOAL A</h2>
+      <div class="fin-dest" id="fin-dest">SNOW SUMMIT</div>
+      <div class="fin-map" id="fin-map"></div>
+      <div class="go-stats">
+        <div><span>SCORE</span><b id="fin-score">0</b></div>
+        <div><span>BEST</span><b id="fin-best">0</b></div>
+      </div>
+      <div id="fin-newbest" class="blink hide">&#9733; NEW RECORD &#9733;</div>
+      <button id="btn-finagain" class="arcade-btn" type="button">RACE AGAIN</button>
     </div>
   </div>
 

@@ -253,6 +253,38 @@ html, body {
   box-shadow: 0 4px 0 #600, 0 0 16px rgba(255,82,119,0.5);
 }
 
+/* ---- goal / finish screen ---- */
+#screen-finish { background: rgba(10, 2, 30, 0.86); }
+.fin-panel {
+  border-color: #ffe14a;
+  box-shadow: 0 0 26px rgba(255, 225, 74, 0.5);
+  max-height: 92vh;
+  overflow: auto;
+}
+.fin-head {
+  color: #ffe14a !important;
+  text-shadow: 0 0 12px #ffae00, 0 0 26px #ff7e3d;
+  margin-bottom: 4px;
+}
+.fin-dest {
+  font-family: "Arial Black", "Arial Bold", Gadget, "Trebuchet MS", sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-size: clamp(13px, 3.4vw, 22px);
+  color: #19f0ff;
+  text-shadow: 0 0 10px #19f0ff;
+  margin-bottom: 10px;
+}
+.fin-map {
+  width: min(70vw, 300px);
+  margin: 0 auto 14px;
+  background: rgba(8, 4, 26, 0.6);
+  border: 1px solid rgba(25, 240, 255, 0.3);
+  border-radius: 10px;
+  padding: 8px;
+}
+.fin-map svg { display: block; }
+
 /* rotate overlay */
 #screen-rotate { background: #14002b; z-index: 100; }
 .rotate-icon {
@@ -329,6 +361,14 @@ html, body {
 }
 .hud-time .hud-val { color: #ffe14a; text-shadow: 0 0 10px #ffae00; }
 .hud-time.low .hud-val { color: #ff4a4a; animation: blink 0.5s steps(2,start) infinite; }
+.hud-biome {
+  margin-top: 1px;
+  font-size: clamp(7px, 1.5vw, 10px);
+  color: #ffd9b0;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
 
 /* Flash banner */
 #flash {
@@ -483,4 +523,5 @@ html, body {
 /* When the active screen is not "playing", hide controls & hud */
 body.state-title #util,
 body.state-loading #util,
+body.state-finish #util,
 body.state-countdown #util { display: none; }

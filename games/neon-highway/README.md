@@ -47,9 +47,19 @@ It is also linked from the main hub (`index.html` at the repo root).
 - Arrow Down (or S) — brake
 - Space — nitro boost
 
-## Gameplay
+## Gameplay (v1 — Outrun-style branching course)
 
-- You start with **45 seconds**. Every **checkpoint** adds time.
+- **5 stages, a fork at every checkpoint.** 15 unique route
+  segments, **5 different goals (A–E)**. The side of the road you
+  are on when the fork locks decides where you go next — watch for
+  the **CHOOSE YOUR ROUTE** call and the roadside route signs.
+- Every route segment is its **own biome and time of day**
+  (Pacific coast sunset, neon city, desert, canyon, alpine forest,
+  salt flats, snow pass, Vegas night…). The world **cross-fades**
+  at each checkpoint.
+- You start with **42 seconds**. Every **checkpoint** adds time;
+  reaching a stage-5 goal is a **WIN** with a time bonus and a
+  recap **route map** of the path you took.
 - Score climbs with distance and speed, with bonuses for
   checkpoints and for **near-misses** (shaving past traffic).
 - Hitting traffic costs you speed and shakes the camera.

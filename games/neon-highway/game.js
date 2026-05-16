@@ -1,13 +1,16 @@
 /* ============================================================
- *  NEON HIGHWAY USA
+ *  NEON HIGHWAY USA  —  v1 (Milestone 1)
  *  A retro pseudo-3D arcade racer. Vanilla JS, no deps.
- *  All art is generated as inline SVG -> Image, all audio is
- *  synthesised with the Web Audio API. Nothing is loaded
- *  from disk or network.
  *
- *  Rendering uses the classic segment-projection technique
- *  (road split into Z segments, each projected with a pinhole
- *  camera) which gives the arcade "into the screen" depth.
+ *  v1 adds the Outrun-style branching course:
+ *    - 5 stages, a fork at every checkpoint, 15 unique
+ *      route segments, 5 different goals (A..E).
+ *    - Each route segment has its own biome + time of day,
+ *      cross-fading at the checkpoint so the world morphs.
+ *    - Reaching a stage-5 goal = WIN (route map recap).
+ *
+ *  Rendering still uses the classic segment-projection
+ *  technique (road split into Z segments, pinhole camera).
  * ============================================================ */
 (function () {
   "use strict";
@@ -19,22 +22,6 @@
     clamp(v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); },
     lerp(a, b, t) { return a + (b - a) * t; },
     accel(v, a, dt) { return v + a * dt; },
-
-    // increase a looping value (track position) wrapping at max
-    increase(start, inc, max) {
-      let r = start + inc;
-      while (r >= max) r -= max;
-      while (r < 0) r += max;
-      return r;
-    },
-
-    // shortest signed distance from b to a on a ring of length len
-    loopDelta(a, b, len) {
-      let d = a - b;
-      while (d > len / 2) d -= len;
-      while (d < -len / 2) d += len;
-      return d;
-    },
 
     percentRemaining(n, total) { return (n % total) / total; },
 
@@ -53,6 +40,18 @@
     randInt(lo, hi) { return Math.floor(lo + Math.random() * (hi - lo + 1)); },
     randChoice(arr) { return arr[Util.randInt(0, arr.length - 1)]; },
 
+    // deterministic PRNG (mulberry32) so a given route node always
+    // generates the same layout
+    seedRand(seed) {
+      let a = seed >>> 0;
+      return function () {
+        a |= 0; a = (a + 0x6D2B79F5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    },
+
     // project a 3D point into screen space (mutates p.camera / p.screen)
     project(p, camX, camY, camZ, camDepth, w, h, roadW) {
       p.camera.x = (p.world.x || 0) - camX;
@@ -68,12 +67,24 @@
       const n = parseInt(hex.slice(1), 16);
       return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
     },
-    mix(hexA, hexB, t) {
+    // blend two hex colours -> {r,g,b}
+    blendRgb(hexA, hexB, t) {
       const a = Util.hexToRgb(hexA), b = Util.hexToRgb(hexB);
-      const r = Math.round(Util.lerp(a.r, b.r, t));
-      const g = Math.round(Util.lerp(a.g, b.g, t));
-      const bl = Math.round(Util.lerp(a.b, b.b, t));
-      return "rgb(" + r + "," + g + "," + bl + ")";
+      return {
+        r: Math.round(Util.lerp(a.r, b.r, t)),
+        g: Math.round(Util.lerp(a.g, b.g, t)),
+        b: Math.round(Util.lerp(a.b, b.b, t))
+      };
+    },
+    rgbStr(c) { return "rgb(" + c.r + "," + c.g + "," + c.b + ")"; },
+    // colour A->B by `tm` (theme blend) then ->fog by `fog`
+    mixThemed(hexA, hexB, tm, fogHex, fog) {
+      const base = Util.blendRgb(hexA, hexB, tm);
+      const f = Util.hexToRgb(fogHex);
+      return "rgb(" +
+        Math.round(Util.lerp(f.r, base.r, fog)) + "," +
+        Math.round(Util.lerp(f.g, base.g, fog)) + "," +
+        Math.round(Util.lerp(f.b, base.b, fog)) + ")";
     }
   };
 
@@ -86,7 +97,7 @@
   const LANES = 3;
   const FOV = 100;              // field of view (deg)
   const CAM_HEIGHT = 1000;      // camera height above the road
-  const DRAW_DIST = 240;        // how many segments we draw ahead
+  const DRAW_DIST = 200;        // how many segments we draw ahead
   const FOG_DENSITY = 5;
   const CENTRIFUGAL = 0.32;     // how hard curves push the car out
 
@@ -103,17 +114,155 @@
   const BOOST_TIME = 1.7;        // seconds of boost
   const BOOST_COOLDOWN = 4.5;    // seconds before boost recharges
 
-  const START_TIME = 45;         // starting seconds on the clock
-  const CP_BONUS_TIME = 11;      // seconds gained at a checkpoint
-  const CP_DISTANCE = 60000;     // world units between checkpoints
+  const START_TIME = 42;         // starting seconds on the clock
+  const CP_BONUS_TIME = 16;      // seconds gained at each checkpoint
+
+  const STAGES = 5;              // Outrun-style: 5 stages, 15 nodes, 5 goals
+  const FADE_SEGS = 26;          // segments over which a new biome cross-fades
+  const LOCK_AHEAD = 110;        // segments before a node end the branch locks
 
   // global sprite scale (tuned so the player car reads well)
   const SPRITE_SCALE = 0.3 * (1 / 300);
 
-  const COLORS = {
-    LIGHT: { road: "#9a9aa6", grass: "#1d9b56", rumble: "#f4f4f8", lane: "#fbfbff" },
-    DARK:  { road: "#8f8f9b", grass: "#188a4c", rumble: "#c81d4e", lane: "#8f8f9b" },
-    FOG: "#4a1166"
+  /* ----------------------------------------------------------
+   *  THEMES - biome + time-of-day presets (one per route node)
+   *  Each: sky gradient stops, sun palette (null = night/no sun),
+   *  star density, fog colour, light/dark road palettes,
+   *  mountain near/far colours, decoration sprite pool, name.
+   * -------------------------------------------------------- */
+  const THEMES = {
+    coastSunset: {
+      name: "PACIFIC COAST",
+      sky: [[0, "#2a0a4a"], [.30, "#5e1170"], [.46, "#d23b6e"], [.55, "#ff7e3d"], [.62, "#ffd24a"]],
+      sun: ["#fff27a", "#ff7e3d", "#ff2e88"], stars: 0, fog: "#4a1166",
+      light: { road: "#9a9aa6", grass: "#1d9b56", rumble: "#f4f4f8", lane: "#fbfbff" },
+      dark:  { road: "#8f8f9b", grass: "#188a4c", rumble: "#c81d4e", lane: "#8f8f9b" },
+      mtnFar: "#3a1466", mtnNear: "#270e4a", decor: ["palm", "palm", "billboard"]
+    },
+    neonCityDusk: {
+      name: "NEON CITY",
+      sky: [[0, "#190033"], [.34, "#3a0a5e"], [.52, "#7a1bd6"], [.64, "#ff2e88"], [.72, "#ff7e3d"]],
+      sun: ["#ffe27a", "#ff3d8d", "#7a1bd6"], stars: 0.4, fog: "#280a4a",
+      light: { road: "#7c7c8e", grass: "#241046", rumble: "#19f0ff", lane: "#ff2e88" },
+      dark:  { road: "#727284", grass: "#1d0a3a", rumble: "#ff2e88", lane: "#727284" },
+      mtnFar: "#3a0a6a", mtnNear: "#240a44", decor: ["building", "building", "billboard"]
+    },
+    desertDay: {
+      name: "MOJAVE DESERT",
+      sky: [[0, "#1e63b8"], [.40, "#5fa8d6"], [.60, "#ffd98a"], [.74, "#ffb35e"]],
+      sun: ["#fff3c0", "#ffd24a", "#ff9b3d"], stars: 0, fog: "#caa066",
+      light: { road: "#b8a890", grass: "#caa35a", rumble: "#fff4e0", lane: "#fffaf0" },
+      dark:  { road: "#ac9c84", grass: "#bd964e", rumble: "#c8783a", lane: "#ac9c84" },
+      mtnFar: "#b97a4a", mtnNear: "#8a5230", decor: ["cactus", "cactus", "billboard"]
+    },
+    canyonDusk: {
+      name: "RED CANYON",
+      sky: [[0, "#2a0a3a"], [.34, "#7a1b4a"], [.52, "#d2453b"], [.64, "#ff7e3d"], [.74, "#ffc24a"]],
+      sun: ["#ffe07a", "#ff6b3d", "#c81d4e"], stars: 0.15, fog: "#5a1d2e",
+      light: { road: "#9a7a72", grass: "#7a3a2a", rumble: "#ffe0d0", lane: "#fff0e8" },
+      dark:  { road: "#8e7068", grass: "#6a3022", rumble: "#c83a2a", lane: "#8e7068" },
+      mtnFar: "#7a2a2e", mtnNear: "#4a161e", decor: ["rock", "cactus", "rock"]
+    },
+    alpineTwilight: {
+      name: "ALPINE FOREST",
+      sky: [[0, "#0a1a3a"], [.36, "#1d3a6a"], [.56, "#3a6a9a"], [.70, "#7aa8c8"], [.80, "#e8b87a"]],
+      sun: ["#ffe8c0", "#e8a87a", "#5a6a9a"], stars: 0.25, fog: "#1a2a44",
+      light: { road: "#7a8290", grass: "#1a5a3a", rumble: "#e8f4f8", lane: "#f8fcff" },
+      dark:  { road: "#707a88", grass: "#144a30", rumble: "#3a8ac8", lane: "#707a88" },
+      mtnFar: "#27406a", mtnNear: "#16263f", decor: ["pine", "pine", "pine"]
+    },
+    saltFlatsBlue: {
+      name: "SALT FLATS",
+      sky: [[0, "#050a2a"], [.40, "#142a5a"], [.62, "#2a5a8a"], [.78, "#5a8ab8"]],
+      sun: null, stars: 0.7, fog: "#16244a",
+      light: { road: "#8a8ea0", grass: "#9aa0b8", rumble: "#e0e8ff", lane: "#f0f4ff" },
+      dark:  { road: "#80849a", grass: "#8e94ae", rumble: "#3a6ac8", lane: "#80849a" },
+      mtnFar: "#1d3060", mtnNear: "#101e40", decor: [null, "billboard", null]
+    },
+    mountainDawn: {
+      name: "SNOW PASS",
+      sky: [[0, "#1a2a5a"], [.38, "#5a5a9a"], [.56, "#c87aa8"], [.70, "#ffb8a0"], [.82, "#ffe0c0"]],
+      sun: ["#fff0e0", "#ffb8a0", "#7a6a9a"], stars: 0.1, fog: "#3a3a66",
+      light: { road: "#9aa0ae", grass: "#dfe6f0", rumble: "#ff7eb0", lane: "#ffffff" },
+      dark:  { road: "#9096a4", grass: "#cdd6e4", rumble: "#7a8ad0", lane: "#9096a4" },
+      mtnFar: "#5a5a8a", mtnNear: "#3a3a60", decor: ["pineSnow", "pineSnow", "pineSnow"]
+    },
+    lakeDawn: {
+      name: "MIST LAKE",
+      sky: [[0, "#2a2a5a"], [.38, "#6a5a8a"], [.56, "#c89ab0"], [.70, "#ffc8a8"], [.82, "#ffe8c8"]],
+      sun: ["#fff2dc", "#ffc090", "#8a7a9a"], stars: 0.05, fog: "#5a5a7a",
+      light: { road: "#94989e", grass: "#3a7a6a", rumble: "#ffe0e8", lane: "#fbfbff" },
+      dark:  { road: "#8a8e96", grass: "#2f6a5a", rumble: "#5aaab0", lane: "#8a8e96" },
+      mtnFar: "#4a4a74", mtnNear: "#2e2e50", decor: ["pine", "pine", "pine"]
+    },
+    highlandsSunrise: {
+      name: "GOLD HIGHLANDS",
+      sky: [[0, "#3a2a5a"], [.34, "#9a4a6a"], [.52, "#ff8a4a"], [.64, "#ffc24a"], [.74, "#fff0a0"]],
+      sun: ["#fffbc0", "#ffd24a", "#ff7e3d"], stars: 0, fog: "#7a4a3a",
+      light: { road: "#a89a86", grass: "#9a8a3a", rumble: "#fff4d0", lane: "#fffae8" },
+      dark:  { road: "#9c907c", grass: "#8a7a30", rumble: "#e8a83a", lane: "#9c907c" },
+      mtnFar: "#9a6a3a", mtnNear: "#6a4422", decor: ["pine", "rock", "pine"]
+    },
+    mesaNight: {
+      name: "MESA NIGHT",
+      sky: [[0, "#020012"], [.38, "#160a3a"], [.58, "#3a1b6a"], [.74, "#7a2e88"]],
+      sun: null, stars: 0.85, fog: "#1a0a32",
+      light: { road: "#6e6e82", grass: "#221038", rumble: "#19f0ff", lane: "#ff2e88" },
+      dark:  { road: "#64647a", grass: "#1a0a2e", rumble: "#ff2e88", lane: "#64647a" },
+      mtnFar: "#2a1050", mtnNear: "#180a34", decor: ["cactus", "billboard", "cactus"]
+    },
+    snowSummitDawn: {
+      name: "SNOW SUMMIT",
+      sky: [[0, "#3a4a8a"], [.38, "#7a8aba"], [.56, "#c8c0d8"], [.72, "#ffe0d8"], [.84, "#fff4e8"]],
+      sun: ["#ffffff", "#ffd8c8", "#9aa8d0"], stars: 0, fog: "#7a86a8",
+      light: { road: "#a4aab6", grass: "#eef2f8", rumble: "#ff9ec0", lane: "#ffffff" },
+      dark:  { road: "#9aa0ac", grass: "#dee6f0", rumble: "#88a0e0", lane: "#9aa0ac" },
+      mtnFar: "#7a86b0", mtnNear: "#56608a", decor: ["pineSnow", "pineSnow", "pineSnow"]
+    },
+    pineValleyMorning: {
+      name: "PINE VALLEY",
+      sky: [[0, "#1a5a8a"], [.40, "#4a9ac8"], [.60, "#a8d8e8"], [.78, "#e8f4d8"]],
+      sun: ["#ffffe0", "#d8f0a0", "#7ac8d8"], stars: 0, fog: "#5a8a6a",
+      light: { road: "#94a098", grass: "#2a8a4a", rumble: "#f0fae8", lane: "#fbfff8" },
+      dark:  { road: "#8a968e", grass: "#227a3e", rumble: "#4abf6a", lane: "#8a968e" },
+      mtnFar: "#2e6a5a", mtnNear: "#1d4a3c", decor: ["pine", "pine", "pine"]
+    },
+    riverCitySunrise: {
+      name: "RIVER CITY",
+      sky: [[0, "#2a1a5a"], [.34, "#7a3a7a"], [.52, "#ff6a5a"], [.64, "#ffa84a"], [.74, "#ffe08a"]],
+      sun: ["#fff4c0", "#ffb24a", "#ff5a6a"], stars: 0.1, fog: "#4a2a5a",
+      light: { road: "#84849a", grass: "#2a5a7a", rumble: "#ffe8c0", lane: "#19f0ff" },
+      dark:  { road: "#7a7a90", grass: "#224a6a", rumble: "#ff7e3d", lane: "#7a7a90" },
+      mtnFar: "#4a3a7a", mtnNear: "#2e2452", decor: ["building", "building", "billboard"]
+    },
+    vegasNight: {
+      name: "NEON VEGAS",
+      sky: [[0, "#02000f"], [.36, "#120a30"], [.56, "#3a0a6a"], [.72, "#ff2e88"], [.82, "#7a1bd6"]],
+      sun: null, stars: 0.6, fog: "#1a0036",
+      light: { road: "#70708a", grass: "#1f0a40", rumble: "#19f0ff", lane: "#ffe14a" },
+      dark:  { road: "#666680", grass: "#180834", rumble: "#ff2e88", lane: "#666680" },
+      mtnFar: "#2e0a60", mtnNear: "#1a0640", decor: ["building", "billboard", "building"]
+    },
+    desertAurora: {
+      name: "DESERT DAWN",
+      sky: [[0, "#1a0a4a"], [.32, "#5a1b8a"], [.48, "#c83a8a"], [.60, "#3acf9a"], [.72, "#7ae8c8"], [.82, "#ffe0a0"]],
+      sun: ["#fff0c0", "#ff8aa8", "#3acf9a"], stars: 0.4, fog: "#3a1a5a",
+      light: { road: "#9a8e8a", grass: "#7a5a4a", rumble: "#fff0e0", lane: "#9af0d0" },
+      dark:  { road: "#8e8480", grass: "#6a4e40", rumble: "#3acf9a", lane: "#8e8480" },
+      mtnFar: "#5a2a6a", mtnNear: "#3a1a48", decor: ["cactus", "rock", "cactus"]
+    }
+  };
+
+  // 15 route nodes (stage 1..5). From node (s,i): LEFT -> (s+1,i),
+  // RIGHT -> (s+1,i+1). Stage-5 nodes are goals A..E.
+  const ROUTE = {
+    "1-0": { theme: "coastSunset" },
+    "2-0": { theme: "neonCityDusk" },     "2-1": { theme: "desertDay" },
+    "3-0": { theme: "canyonDusk" },       "3-1": { theme: "alpineTwilight" },   "3-2": { theme: "saltFlatsBlue" },
+    "4-0": { theme: "mountainDawn" },     "4-1": { theme: "lakeDawn" },         "4-2": { theme: "highlandsSunrise" }, "4-3": { theme: "mesaNight" },
+    "5-0": { theme: "snowSummitDawn", goal: "A" }, "5-1": { theme: "pineValleyMorning", goal: "B" },
+    "5-2": { theme: "riverCitySunrise", goal: "C" }, "5-3": { theme: "vegasNight", goal: "D" },
+    "5-4": { theme: "desertAurora", goal: "E" }
   };
 
   /* ----------------------------------------------------------
@@ -126,13 +275,13 @@
       return "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
     },
 
-    // ---- player car (rear three-quarter view) ----
-    playerCarSVG() {
+    playerCarSVG(c) {
+      c = c || { hi: "#ff4d8d", mid: "#d6195f", lo: "#7a0c34" };
       return `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="190" viewBox="0 0 300 190">
         <defs>
           <linearGradient id="pb" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="#ff4d8d"/><stop offset=".55" stop-color="#d6195f"/>
-            <stop offset="1" stop-color="#7a0c34"/>
+            <stop offset="0" stop-color="${c.hi}"/><stop offset=".55" stop-color="${c.mid}"/>
+            <stop offset="1" stop-color="${c.lo}"/>
           </linearGradient>
           <linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stop-color="#9be7ff"/><stop offset="1" stop-color="#1b6a8c"/>
@@ -156,7 +305,6 @@
       </svg>`;
     },
 
-    // ---- a traffic car, palette driven, rear view ----
     trafficCarSVG(c) {
       return `<svg xmlns="http://www.w3.org/2000/svg" width="280" height="175" viewBox="0 0 280 175">
         <defs><linearGradient id="t" x1="0" y1="0" x2="0" y2="1">
@@ -208,34 +356,100 @@
         <rect x="76" y="70" width="38" height="246" rx="19" fill="url(#cg)"/>
         <path d="M76 170 q-34 0 -34 -42 v-26 a14 14 0 0 1 28 0 v22 q0 18 6 18 Z" fill="url(#cg)"/>
         <path d="M114 150 q34 0 34 -42 v-30 a14 14 0 0 1 28 0 v34 q0 36 -62 60 Z" fill="url(#cg)"/>
-        <g stroke="#0e4a22" stroke-width="3">
-          <line x1="95" y1="92" x2="95" y2="300"/>
-        </g>
+        <g stroke="#0e4a22" stroke-width="3"><line x1="95" y1="92" x2="95" y2="300"/></g>
+      </svg>`;
+    },
+
+    pineSVG(snow) {
+      const leaf = snow ? "#2a5a4a" : "#157a3e";
+      const leaf2 = snow ? "#3a6a5a" : "#1d9b56";
+      const cap = snow
+        ? `<path d="M95 28 L122 96 Q95 84 68 96 Z" fill="#eef4f8"/>
+           <path d="M95 96 L132 168 Q95 150 58 168 Z" fill="#dfeaf2" opacity=".85"/>`
+        : "";
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="190" height="360" viewBox="0 0 190 360">
+        <ellipse cx="95" cy="350" rx="60" ry="11" fill="rgba(0,0,0,.32)"/>
+        <rect x="86" y="280" width="18" height="70" fill="#4a2e16"/>
+        <path d="M95 20 L140 130 Q95 112 50 130 Z" fill="${leaf}"/>
+        <path d="M95 80 L156 210 Q95 188 34 210 Z" fill="${leaf2}"/>
+        <path d="M95 150 L172 296 Q95 270 18 296 Z" fill="${leaf}"/>
+        ${cap}
+      </svg>`;
+    },
+
+    rockSVG() {
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="260" height="220" viewBox="0 0 260 220">
+        <defs><linearGradient id="rk" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#b5683f"/><stop offset=".55" stop-color="#8a472a"/>
+          <stop offset="1" stop-color="#5a2c18"/></linearGradient></defs>
+        <ellipse cx="130" cy="210" rx="100" ry="14" fill="rgba(0,0,0,.32)"/>
+        <path d="M30 210 L52 96 L96 60 L150 44 L206 86 L232 150 L230 210 Z" fill="url(#rk)"/>
+        <path d="M52 96 L96 60 L120 120 L78 150 Z" fill="rgba(255,255,255,.10)"/>
+        <path d="M150 44 L206 86 L176 132 L132 96 Z" fill="rgba(0,0,0,.18)"/>
+      </svg>`;
+    },
+
+    buildingSVG(c) {
+      let win = "";
+      for (let y = 70; y < 520; y += 46)
+        for (let x = 70; x < 196; x += 38)
+          win += `<rect x="${x}" y="${y}" width="22" height="28"/>`;
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="260" height="560" viewBox="0 0 260 560">
+        <defs><linearGradient id="bd" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="${c.hi}"/><stop offset="1" stop-color="${c.lo}"/></linearGradient></defs>
+        <ellipse cx="130" cy="550" rx="96" ry="12" fill="rgba(0,0,0,.4)"/>
+        <rect x="54" y="40" width="152" height="510" fill="url(#bd)" stroke="${c.edge}" stroke-width="3"/>
+        <rect x="106" y="14" width="48" height="32" fill="${c.lo}"/>
+        <g fill="${c.win}">${win}</g>
+        <rect x="54" y="40" width="152" height="510" fill="none" stroke="${c.edge}" stroke-width="3"/>
       </svg>`;
     },
 
     billboardSVG(text, accent) {
       return `<svg xmlns="http://www.w3.org/2000/svg" width="440" height="340" viewBox="0 0 440 340">
-        <defs>
-          <linearGradient id="bp" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="#241042"/><stop offset="1" stop-color="#120626"/>
-          </linearGradient>
-        </defs>
+        <defs><linearGradient id="bp" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#241042"/><stop offset="1" stop-color="#120626"/></linearGradient></defs>
         <ellipse cx="220" cy="330" rx="150" ry="14" fill="rgba(0,0,0,.32)"/>
         <rect x="86" y="150" width="20" height="180" fill="#3a2a1a"/>
         <rect x="334" y="150" width="20" height="180" fill="#3a2a1a"/>
-        <rect x="40" y="20" width="360" height="170" rx="12" fill="url(#bp)"
-              stroke="${accent}" stroke-width="6"/>
-        <rect x="40" y="20" width="360" height="170" rx="12" fill="none"
-              stroke="${accent}" stroke-width="6" opacity=".4"/>
-        <text x="220" y="118" text-anchor="middle"
-              font-family="Arial Black, Arial, sans-serif" font-size="68"
-              font-weight="900" fill="#fff" stroke="${accent}" stroke-width="2"
+        <rect x="40" y="20" width="360" height="170" rx="12" fill="url(#bp)" stroke="${accent}" stroke-width="6"/>
+        <rect x="40" y="20" width="360" height="170" rx="12" fill="none" stroke="${accent}" stroke-width="6" opacity=".4"/>
+        <text x="220" y="118" text-anchor="middle" font-family="Arial Black, Arial, sans-serif"
+              font-size="58" font-weight="900" fill="#fff" stroke="${accent}" stroke-width="2"
               style="paint-order:stroke">${text}</text>
-        <circle cx="60" cy="40" r="6" fill="${accent}"/>
-        <circle cx="380" cy="40" r="6" fill="${accent}"/>
-        <circle cx="60" cy="170" r="6" fill="${accent}"/>
-        <circle cx="380" cy="170" r="6" fill="${accent}"/>
+        <circle cx="60" cy="40" r="6" fill="${accent}"/><circle cx="380" cy="40" r="6" fill="${accent}"/>
+        <circle cx="60" cy="170" r="6" fill="${accent}"/><circle cx="380" cy="170" r="6" fill="${accent}"/>
+      </svg>`;
+    },
+
+    // a roadside route sign: arrow + label, placed before a fork
+    signSVG(dir, label, accent) {
+      const arrow = dir === "L"
+        ? `<path d="M150 60 L70 110 L150 160 L150 130 L210 130 L210 90 L150 90 Z" fill="${accent}"/>`
+        : `<path d="M130 60 L210 110 L130 160 L130 130 L70 130 L70 90 L130 90 Z" fill="${accent}"/>`;
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="320" viewBox="0 0 300 320">
+        <ellipse cx="150" cy="310" rx="70" ry="10" fill="rgba(0,0,0,.32)"/>
+        <rect x="142" y="180" width="16" height="130" fill="#2a2a2a"/>
+        <rect x="24" y="24" width="252" height="170" rx="10" fill="#0c0626" stroke="${accent}" stroke-width="5"/>
+        ${arrow}
+        <text x="150" y="186" text-anchor="middle" font-family="Arial Black, Arial, sans-serif"
+              font-size="30" font-weight="900" fill="#fff">${label}</text>
+      </svg>`;
+    },
+
+    goalSVG() {
+      let chk = "";
+      for (let i = 0; i < 22; i++)
+        chk += `<rect x="${60 + i * 36}" y="110" width="18" height="18"/><rect x="${78 + i * 36}" y="128" width="18" height="18"/>`;
+      return `<svg xmlns="http://www.w3.org/2000/svg" width="900" height="320" viewBox="0 0 900 320">
+        <ellipse cx="450" cy="306" rx="360" ry="12" fill="rgba(0,0,0,.35)"/>
+        <rect x="60" y="40" width="26" height="270" fill="#2a2a2a"/>
+        <rect x="814" y="40" width="26" height="270" fill="#2a2a2a"/>
+        <rect x="60" y="30" width="780" height="70" rx="8" fill="#0c0626" stroke="#19f0ff" stroke-width="6"/>
+        <text x="450" y="84" text-anchor="middle" font-family="Arial Black, Arial, sans-serif"
+              font-size="56" font-weight="900" fill="#fff" stroke="#ff2e88" stroke-width="2"
+              style="paint-order:stroke">GOAL</text>
+        <g fill="#19f0ff">${chk}</g>
       </svg>`;
     },
 
@@ -245,13 +459,21 @@
         ["car0", this.trafficCarSVG({ hi: "#7fe3ff", mid: "#1f9ad6", lo: "#0c4f73" })],
         ["car1", this.trafficCarSVG({ hi: "#ffd56b", mid: "#f59e1b", lo: "#8a560a" })],
         ["car2", this.trafficCarSVG({ hi: "#c6ff8a", mid: "#5fcf3a", lo: "#256b18" })],
+        ["car3", this.trafficCarSVG({ hi: "#ff9ad0", mid: "#d63a8a", lo: "#7a1450" })],
         ["palm", this.palmSVG()],
         ["cactus", this.cactusSVG()],
+        ["pine", this.pineSVG(false)],
+        ["pineSnow", this.pineSVG(true)],
+        ["rock", this.rockSVG()],
+        ["building", this.buildingSVG({ hi: "#3a2a6a", lo: "#100626", edge: "#19f0ff", win: "#ffe14a" })],
         ["bbDiner", this.billboardSVG("DINER", "#ff2e88")],
         ["bbMotel", this.billboardSVG("MOTEL", "#19f0ff")],
         ["bbGas", this.billboardSVG("GAS", "#ffd24a")],
         ["bbVegas", this.billboardSVG("VEGAS", "#ff7e3d")],
-        ["bbCoast", this.billboardSVG("COAST", "#7afcff")]
+        ["bbCoast", this.billboardSVG("COAST", "#7afcff")],
+        ["signL", this.signSVG("L", "ROUTE", "#19f0ff")],
+        ["signR", this.signSVG("R", "ROUTE", "#ff2e88")],
+        ["goal", this.goalSVG()]
       ];
       let done = 0;
       const total = defs.length;
@@ -277,11 +499,8 @@
    * -------------------------------------------------------- */
   class AudioManager {
     constructor() {
-      this.ctx = null;
-      this.muted = false;
-      this.master = null;
-      this.engine = null;
-      this.engineGain = null;
+      this.ctx = null; this.muted = false;
+      this.master = null; this.engine = null; this.engineGain = null;
     }
     ensure() {
       if (this.ctx) return;
@@ -292,15 +511,8 @@
       this.master.gain.value = this.muted ? 0 : 0.5;
       this.master.connect(this.ctx.destination);
     }
-    resume() {
-      this.ensure();
-      if (this.ctx && this.ctx.state === "suspended") this.ctx.resume();
-    }
-    setMuted(m) {
-      this.muted = m;
-      if (this.master) this.master.gain.value = m ? 0 : 0.5;
-    }
-    // short synth blip
+    resume() { this.ensure(); if (this.ctx && this.ctx.state === "suspended") this.ctx.resume(); }
+    setMuted(m) { this.muted = m; if (this.master) this.master.gain.value = m ? 0 : 0.5; }
     blip(freq, dur, type, vol, slideTo) {
       if (!this.ctx) return;
       const t = this.ctx.currentTime;
@@ -366,6 +578,10 @@
         case "near":       this.blip(880, 0.06, "triangle", 0.18); break;
         case "count":      this.blip(440, 0.1, "square", 0.3); break;
         case "go":         this.blip(880, 0.25, "square", 0.35, 1320); break;
+        case "fork":       this.blip(520, 0.09, "square", 0.3, 760);
+                           setTimeout(() => this.blip(760, 0.12, "square", 0.28), 80); break;
+        case "win":        [0, 140, 280, 460].forEach((d, i) =>
+                             setTimeout(() => this.blip(523 + i * 130, 0.22, "square", 0.34, 660 + i * 160), d)); break;
         case "gameover":   this.blip(440, 0.2, "sawtooth", 0.35, 110);
                            setTimeout(() => this.blip(220, 0.4, "sawtooth", 0.3, 60), 180); break;
       }
@@ -378,14 +594,11 @@
   class Input {
     constructor() {
       this.keyL = false; this.keyR = false;
-      this.joyAxis = 0;                       // analog from joystick
+      this.joyAxis = 0;
       this.gas = false; this.brake = false; this.boost = false;
       this._joy = null;
-      this._bindKeys();
-      this._bindButtons();
-      this._bindJoystick();
+      this._bindKeys(); this._bindButtons(); this._bindJoystick();
     }
-    // combined steering, clamped -1 .. 1
     get axis() {
       return Util.clamp(this.joyAxis + (this.keyR ? 1 : 0) - (this.keyL ? 1 : 0), -1, 1);
     }
@@ -432,7 +645,6 @@
       const knob = document.getElementById("joy-knob");
       if (!zone || !base || !knob) return;
       const J = this._joy = { id: null, ox: 0, oy: 0, r: 60 };
-
       const start = (e) => {
         const p = this._pt(e);
         if (!p || J.id !== null) return;
@@ -443,8 +655,7 @@
         J.r = sz * 0.40;
         base.style.left = (p.clientX - sz / 2) + "px";
         base.style.top = (p.clientY - sz / 2) + "px";
-        base.style.right = "auto";
-        base.style.bottom = "auto";
+        base.style.right = "auto"; base.style.bottom = "auto";
         base.classList.add("active");
         knob.style.transform = "translate(0px,0px)";
         if (e.pointerId != null && zone.setPointerCapture) {
@@ -463,7 +674,7 @@
         if (d > r) { dx = dx / d * r; dy = dy / d * r; }
         knob.style.transform = "translate(" + dx.toFixed(1) + "px," + dy.toFixed(1) + "px)";
         let a = dx / r;
-        const dz = 0.10;                       // small dead-zone
+        const dz = 0.10;
         a = (Math.abs(a) < dz) ? 0 : (a - Math.sign(a) * dz) / (1 - dz);
         this.joyAxis = Util.clamp(a, -1, 1);
       };
@@ -476,7 +687,6 @@
         base.classList.remove("active");
         base.style.left = base.style.top = base.style.right = base.style.bottom = "";
       };
-
       zone.addEventListener("pointerdown", start);
       zone.addEventListener("pointermove", move);
       zone.addEventListener("pointerup", end);
@@ -494,16 +704,22 @@
   }
 
   /* ----------------------------------------------------------
-   *  Road - builds the looping track + projects/renders it
+   *  Road - builds a FINITE, BRANCHING course node by node
    * -------------------------------------------------------- */
   class Road {
     constructor() {
       this.segments = [];
+      this.nodes = [];          // committed path: [{stage,index,theme,...}]
       this.trackLength = 0;
     }
-    segAt(z) { return this.segments[Math.floor(z / SEG_LEN) % this.segments.length]; }
+    // clamp (no looping); last segment is the finish line
+    segAt(z) {
+      const i = Math.floor(z / SEG_LEN);
+      const s = this.segments;
+      return s[i < 0 ? 0 : (i >= s.length ? s.length - 1 : i)];
+    }
 
-    _push(curve, y) {
+    _push(curve, y, themeKey, fadeFrom, fade) {
       const n = this.segments.length;
       const prevY = n === 0 ? 0 : this.segments[n - 1].p2.world.y;
       this.segments.push({
@@ -511,75 +727,133 @@
         curve: curve,
         p1: { world: { x: 0, y: prevY, z: n * SEG_LEN }, camera: {}, screen: {} },
         p2: { world: { x: 0, y: y, z: (n + 1) * SEG_LEN }, camera: {}, screen: {} },
-        color: Math.floor(n / RUMBLE_LEN) % 2 ? COLORS.DARK : COLORS.LIGHT,
-        sprites: [],
-        cars: [],
-        clip: 0,
-        fog: 0
+        dark: Math.floor(n / RUMBLE_LEN) % 2 === 1,
+        theme: themeKey, fadeFrom: fadeFrom, fade: fade,
+        sprites: [], cars: [], clip: 0, fog: 0
       });
     }
     _ease(a, b, p) { return a + (b - a) * (-Math.cos(p * Math.PI) / 2 + 0.5); }
 
-    _addRoad(enter, hold, leave, curve, height) {
-      const startY = this.segments.length ? this.segments[this.segments.length - 1].p2.world.y : 0;
+    // emit one road piece into the current node
+    _addRoad(enter, hold, leave, curve, height, themeKey, fadeFrom, fadeBaseIdx) {
+      const segs = this.segments;
+      const startY = segs.length ? segs[segs.length - 1].p2.world.y : 0;
       const endY = startY + height * SEG_LEN;
       const total = enter + hold + leave;
+      const fadeAt = () => {
+        if (!fadeFrom) return 1;
+        return Util.clamp((segs.length - fadeBaseIdx) / FADE_SEGS, 0, 1);
+      };
       let n;
-      for (n = 0; n < enter; n++) this._push(this._ease(0, curve, n / enter), this._ease(startY, endY, n / total));
-      for (n = 0; n < hold; n++) this._push(curve, this._ease(startY, endY, (enter + n) / total));
-      for (n = 0; n < leave; n++) this._push(this._ease(curve, 0, n / leave), this._ease(startY, endY, (enter + hold + n) / total));
+      for (n = 0; n < enter; n++)
+        this._push(this._ease(0, curve, n / enter),
+          this._ease(startY, endY, n / total), themeKey, fadeFrom, fadeAt());
+      for (n = 0; n < hold; n++)
+        this._push(curve, this._ease(startY, endY, (enter + n) / total),
+          themeKey, fadeFrom, fadeAt());
+      for (n = 0; n < leave; n++)
+        this._push(this._ease(curve, 0, n / leave),
+          this._ease(startY, endY, (enter + hold + n) / total),
+          themeKey, fadeFrom, fadeAt());
     }
 
-    build() {
+    reset() {
       this.segments = [];
-      const S = 0, M = 2.4, H = 5.0;          // curve strengths
-      const LO = 22, MED = 42, BIG = 70;       // hill heights
-      // a varied, looping circuit
-      this._addRoad(40, 40, 40, 0, 0);
-      this._addRoad(40, 50, 40, M, LO);
-      this._addRoad(40, 60, 40, -M, -LO);
-      this._addRoad(30, 40, 30, -H, 0);
-      this._addRoad(40, 80, 40, 0, MED);
-      this._addRoad(40, 50, 40, H, -MED);
-      this._addRoad(40, 60, 40, -M, BIG);
-      this._addRoad(50, 90, 50, 0, -BIG);
-      this._addRoad(30, 40, 30, H, 0);
-      this._addRoad(40, 60, 40, -H, LO);
-      this._addRoad(40, 70, 40, M, -LO);
-      this._addRoad(40, 50, 40, 0, MED);
-      this._addRoad(40, 60, 40, -H, -MED);
-      this._addRoad(50, 60, 50, M, 0);
-      this._addRoad(40, 40, 40, 0, 0);
-
-      // make it a clean loop
-      while (this.segments.length % RUMBLE_LEN !== 0) this._push(0, this.segments[this.segments.length - 1].p2.world.y);
-
-      this.trackLength = this.segments.length * SEG_LEN;
-      this._decorate();
+      this.nodes = [];
+      this.trackLength = 0;
+      this._buildNode(1, 0, null);
     }
 
-    _decorate() {
+    nodeKey(stage, index) { return stage + "-" + index; }
+
+    // build one route node's segments and append them
+    _buildNode(stage, index, fadeFromTheme) {
+      const def = ROUTE[this.nodeKey(stage, index)];
+      const theme = def.theme;
+      const startSeg = this.segments.length;
+      const fadeBaseIdx = startSeg;
+      const rnd = Util.seedRand(stage * 131 + index * 977 + 7);
+
+      // difficulty rises with stage; LEFT (lower index) a touch tighter
+      const stageF = (stage - 1) / (STAGES - 1);          // 0..1
+      const curveBase = 1.8 + stageF * 4.2;                // curve strength
+      const hillBase = 16 + stageF * 56;                   // hill amplitude
+      const tilt = 1 - index * 0.05;                       // left harder
+      const pieces = 7 + stage * 2;                        // node length
+
+      // gentle run-in for the very first node
+      if (stage === 1 && index === 0)
+        this._addRoad(45, 45, 45, 0, 0, theme, null, fadeBaseIdx);
+
+      for (let p = 0; p < pieces; p++) {
+        const dir = rnd() < 0.5 ? -1 : 1;
+        const mag = (0.25 + rnd() * 0.95) * curveBase * tilt;
+        const curve = (rnd() < 0.32) ? 0 : dir * mag;
+        const hill = (rnd() < 0.45)
+          ? (rnd() < 0.5 ? -1 : 1) * hillBase * (0.4 + rnd() * 1.0) : 0;
+        const enter = 22 + Math.floor(rnd() * 22);
+        const hold = 34 + Math.floor(rnd() * 46);
+        const leave = 22 + Math.floor(rnd() * 22);
+        const ff = (this.segments.length - fadeBaseIdx) < FADE_SEGS ? fadeFromTheme : null;
+        this._addRoad(enter, hold, leave, curve, hill, theme, ff, fadeBaseIdx);
+      }
+      // straighten the last stretch so the checkpoint/fork reads clearly
+      this._addRoad(30, 60, 30, 0, 0, theme, null, fadeBaseIdx);
+      while (this.segments.length % RUMBLE_LEN !== 0)
+        this._push(0, this.segments[this.segments.length - 1].p2.world.y, theme, null, 1);
+
+      const endSeg = this.segments.length - 1;
+      const node = {
+        stage, index, theme,
+        name: THEMES[theme].name,
+        goal: def.goal || null,
+        startSeg, endSeg,
+        lockSeg: Math.max(startSeg, endSeg - LOCK_AHEAD),
+        committed: false
+      };
+      this.nodes.push(node);
+      this.trackLength = this.segments.length * SEG_LEN;
+      this._decorate(node);
+      return node;
+    }
+
+    _decorate(node) {
       const segs = this.segments;
+      const th = THEMES[node.theme];
       const bb = ["bbDiner", "bbMotel", "bbGas", "bbVegas", "bbCoast"];
-      let bbi = 0;
-      for (let i = 20; i < segs.length; i++) {
-        // roadside scenery alternates palms / cactus
-        if (i % 18 === 0) {
-          segs[i].sprites.push({ key: (i % 36 === 0) ? "cactus" : "palm", offset: -1.35 });
+      let bbi = (node.stage * 3 + node.index) % bb.length;
+      for (let i = node.startSeg + 6; i <= node.endSeg; i++) {
+        if (i % 16 === 0) {
+          const k = th.decor[((i / 16) | 0) % th.decor.length];
+          if (k) segs[i].sprites.push({ key: k === "billboard" ? bb[bbi++ % bb.length] : k, offset: -1.35 });
         }
-        if (i % 18 === 9) {
-          segs[i].sprites.push({ key: (i % 36 === 9) ? "cactus" : "palm", offset: 1.35 });
-        }
-        // billboards less frequently, further out
-        if (i % 70 === 0) {
-          segs[i].sprites.push({ key: bb[bbi % bb.length], offset: -2.0 });
-          bbi++;
-        }
-        if (i % 70 === 35) {
-          segs[i].sprites.push({ key: bb[bbi % bb.length], offset: 2.0 });
-          bbi++;
+        if (i % 16 === 8) {
+          const k = th.decor[((((i - 8) / 16) + 1) | 0) % th.decor.length];
+          if (k) segs[i].sprites.push({ key: k === "billboard" ? bb[bbi++ % bb.length] : k, offset: 1.35 });
         }
       }
+      // route signs on the approach to a fork (not on the final goal node)
+      if (node.stage < STAGES) {
+        const aprStart = Math.max(node.startSeg + 4, node.lockSeg - 130);
+        for (let s = aprStart; s < node.lockSeg; s += 22) {
+          if (segs[s]) {
+            segs[s].sprites.push({ key: "signL", offset: -2.05 });
+            segs[s].sprites.push({ key: "signR", offset: 2.05 });
+          }
+        }
+      } else {
+        const gs = Math.max(node.startSeg, node.endSeg - 8);
+        if (segs[gs]) segs[gs].sprites.push({ key: "goal", offset: 0 });
+      }
+    }
+
+    // commit the chosen branch and append the next node (or null at goal)
+    commitBranch(node, goRight, fadeFromTheme) {
+      node.committed = true;
+      if (node.stage >= STAGES) return null;
+      const nextStage = node.stage + 1;
+      const nextIndex = node.index + (goRight ? 1 : 0);
+      return this._buildNode(nextStage, nextIndex, fadeFromTheme);
     }
   }
 
@@ -599,7 +873,9 @@
       this.bestScore = parseInt(localStorage.getItem("neonHighwayBest") || "0", 10);
 
       this.skyGrad = null;
+      this.skyTheme = null;
       this.mountains = this._buildMountains();
+      this.stars = this._buildStars();
 
       this._cacheDOM();
       this._bindUI();
@@ -628,27 +904,29 @@
       this.dom = {
         hud: $("hud"), score: $("hud-score"), time: $("hud-time"),
         timeBox: document.querySelector(".hud-time"),
-        best: $("hud-best"), dist: $("hud-dist"), cp: $("hud-cp"), speed: $("hud-speed"),
+        best: $("hud-best"), dist: $("hud-dist"),
+        stage: $("hud-stage"), biome: $("hud-biome"), speed: $("hud-speed"),
         flash: $("flash"), controls: $("controls"),
         loadFill: $("loading-fill"),
         sTitle: $("screen-title"), sLoad: $("screen-loading"),
         sCount: $("screen-countdown"), sPause: $("screen-paused"),
-        sOver: $("screen-gameover"), sRotate: $("screen-rotate"),
+        sOver: $("screen-gameover"), sFinish: $("screen-finish"),
+        sRotate: $("screen-rotate"),
         countNum: $("count-num"),
         titleBest: $("title-best"),
         goScore: $("go-score"), goDist: $("go-dist"), goBest: $("go-best"),
         goNewBest: $("go-newbest"),
-        boostBtn: $("pedal-boost"),
-        btnMute: $("btn-mute")
+        finTitle: $("fin-title"), finDest: $("fin-dest"),
+        finScore: $("fin-score"), finBest: $("fin-best"),
+        finNewBest: $("fin-newbest"), finMap: $("fin-map"),
+        boostBtn: $("pedal-boost"), btnMute: $("btn-mute")
       };
     }
     _bindUI() {
-      const tap = (el, fn) => {
-        if (!el) return;
-        el.addEventListener("click", fn);
-      };
+      const tap = (el, fn) => { if (el) el.addEventListener("click", fn); };
       this.dom.sTitle.addEventListener("pointerdown", () => this._startRun());
       tap(document.getElementById("btn-again"), () => this._startRun());
+      tap(document.getElementById("btn-finagain"), () => this._startRun());
       tap(document.getElementById("btn-resume"), () => this._resume());
       tap(document.getElementById("btn-quit"), () => this._setState("title"));
       tap(document.getElementById("btn-pause"), () => {
@@ -669,7 +947,7 @@
       this.canvas.width = Math.round(this.W * this.dpr);
       this.canvas.height = Math.round(this.H * this.dpr);
       this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
-      this.skyGrad = this._buildSky();
+      this.skyTheme = null;            // force sky rebuild
       this._checkOrientation();
     }
     _checkOrientation() {
@@ -682,17 +960,23 @@
       }
     }
 
-    _buildSky() {
+    // sky gradient built from a (possibly blended) theme stop list
+    _skyFor(themeKey, fromKey, t) {
+      const a = THEMES[themeKey].sky;
+      const stops = (fromKey && t < 1)
+        ? a.map((s, i) => {
+            const b = THEMES[fromKey].sky;
+            const bs = b[Math.min(i, b.length - 1)];
+            return [Util.lerp(bs[0], s[0], t),
+              Util.rgbStr(Util.blendRgb(bs[1], s[1], t))];
+          })
+        : a.map(s => [s[0], s[1]]);
       const g = this.ctx.createLinearGradient(0, 0, 0, this.H);
-      g.addColorStop(0.00, "#2a0a4a");
-      g.addColorStop(0.30, "#5e1170");
-      g.addColorStop(0.46, "#d23b6e");
-      g.addColorStop(0.55, "#ff7e3d");
-      g.addColorStop(0.62, "#ffd24a");
+      stops.forEach(s => g.addColorStop(Util.clamp(s[0], 0, 1), s[1]));
+      g.addColorStop(1, stops[stops.length - 1][1]);
       return g;
     }
     _buildMountains() {
-      // one period of a jagged silhouette, sampled 0..1
       const pts = [];
       let y = 0.5;
       for (let i = 0; i <= 64; i++) {
@@ -703,13 +987,19 @@
       pts[64] = pts[0];
       return pts;
     }
+    _buildStars() {
+      const s = [];
+      for (let i = 0; i < 140; i++)
+        s.push({ x: Math.random(), y: Math.random() * 0.5, r: Math.random() * 1.4 + 0.3 });
+      return s;
+    }
 
     /* ---- state machine ---- */
     _setState(s) {
       this.state = s;
       document.body.className = "state-" + s;
       const D = this.dom;
-      [D.sTitle, D.sLoad, D.sCount, D.sPause, D.sOver].forEach(e => e.classList.add("hide"));
+      [D.sTitle, D.sLoad, D.sCount, D.sPause, D.sOver, D.sFinish].forEach(e => e && e.classList.add("hide"));
       D.hud.classList.add("hide");
       D.controls.classList.add("hide");
       if (s === "loading") D.sLoad.classList.remove("hide");
@@ -717,13 +1007,13 @@
       if (s === "countdown") D.sCount.classList.remove("hide");
       if (s === "paused") D.sPause.classList.remove("hide");
       if (s === "gameover") D.sOver.classList.remove("hide");
+      if (s === "finish") D.sFinish.classList.remove("hide");
       if (s === "playing" || s === "countdown") {
         D.hud.classList.remove("hide");
         D.controls.classList.remove("hide");
       }
       this._checkOrientation();
     }
-
     _updateBestUI() {
       this.dom.best.textContent = this.bestScore;
       this.dom.titleBest.textContent = this.bestScore;
@@ -731,40 +1021,38 @@
 
     /* ---- run lifecycle ---- */
     _resetRun() {
-      this.road.build();
+      this.road.reset();
       this.position = 0;
       this.playerX = 0;
       this.speed = 0;
       this.traveled = 0;
       this.scoreF = 0;
       this.timeLeft = START_TIME;
-      this.checkpoint = 1;
-      this.nextCP = CP_DISTANCE;
-      this.boostT = 0;
-      this.boostCD = 0;
-      this.shake = 0;
-      this.steerVis = 0;
-      this._spawnTraffic();
+      this.stageNo = 1;
+      this.curNode = this.road.nodes[0];
+      this.path = [{ stage: 1, index: 0, theme: this.curNode.theme }];
+      this.boostT = 0; this.boostCD = 0;
+      this.shake = 0; this.steerVis = 0;
+      this.forkFlashed = false;
+      this.cars = [];
+      this._spawnTraffic(this.curNode);
       this._updateHUD();
     }
 
-    _spawnTraffic() {
-      this.cars = [];
-      const segs = this.road.segments;
-      const n = Math.floor(segs.length / 9);
-      const palette = ["car0", "car1", "car2"];
+    _spawnTraffic(node) {
+      const palette = ["car0", "car1", "car2", "car3"];
+      const span = node.endSeg - node.startSeg;
+      const n = Math.max(5, Math.floor(span * (0.05 + node.stage * 0.006)));
       for (let i = 0; i < n; i++) {
-        const seg = Util.randInt(40, segs.length - 1);
+        const seg = Util.randInt(node.startSeg + 30, Math.max(node.startSeg + 31, node.endSeg - 6));
         const sp = AssetFactory.sprites[Util.randChoice(palette)];
         const car = {
           offset: (Math.random() * 1.6 - 0.8),
           z: seg * SEG_LEN + Math.random() * SEG_LEN,
           sprite: sp,
-          speed: MAX_SPEED * (0.28 + Math.random() * 0.42),
-          prevRel: 1,
-          counted: false
+          speed: MAX_SPEED * (0.26 + Math.random() * 0.42),
+          prevRel: 1, counted: false
         };
-        car.z = Util.increase(car.z, 0, this.road.trackLength);
         this.cars.push(car);
         this.road.segAt(car.z).cars.push(car);
       }
@@ -776,7 +1064,6 @@
       this._resetRun();
       this._beginCountdown();
     }
-
     _beginCountdown() {
       this._setState("countdown");
       let n = 3;
@@ -800,7 +1087,6 @@
       };
       this._cdTimer = setTimeout(tick, 1000);
     }
-
     _pause() {
       if (this.state !== "playing") return;
       this._setState("paused");
@@ -821,10 +1107,7 @@
       const score = Math.floor(this.scoreF);
       const distM = Math.floor(this.traveled / 100);
       const isBest = score > this.bestScore;
-      if (isBest) {
-        this.bestScore = score;
-        localStorage.setItem("neonHighwayBest", String(score));
-      }
+      if (isBest) { this.bestScore = score; localStorage.setItem("neonHighwayBest", String(score)); }
       this.dom.goScore.textContent = score;
       this.dom.goDist.textContent = distM + " m";
       this.dom.goBest.textContent = this.bestScore;
@@ -832,25 +1115,84 @@
       this._updateBestUI();
     }
 
+    _finish(node) {
+      this._setState("finish");
+      this.audio.stopEngine();
+      this.audio.sfx("win");
+      const timeBonus = Math.floor(this.timeLeft) * 250;
+      this.scoreF += timeBonus + 5000;
+      const score = Math.floor(this.scoreF);
+      const isBest = score > this.bestScore;
+      if (isBest) { this.bestScore = score; localStorage.setItem("neonHighwayBest", String(score)); }
+      this.dom.finTitle.textContent = "GOAL " + node.goal;
+      this.dom.finDest.textContent = node.name;
+      this.dom.finScore.textContent = score;
+      this.dom.finBest.textContent = this.bestScore;
+      this.dom.finNewBest.classList.toggle("hide", !isBest);
+      this.dom.finMap.innerHTML = this._routeMapSVG(this.path);
+      this._updateBestUI();
+    }
+
+    // SVG recap of the 15-node triangle with the taken path highlighted
+    _routeMapSVG(path) {
+      const W = 280, H = 196, pad = 22;
+      const visited = {};
+      path.forEach(p => visited[p.stage + "-" + p.index] = true);
+      const pos = (st, ix) => {
+        const y = pad + (st - 1) / (STAGES - 1) * (H - 2 * pad);
+        const spread = (W - 2 * pad) * (st - 1) / (STAGES - 1);
+        const x = W / 2 - spread / 2 + (st === 1 ? 0 : spread * ix / (st - 1));
+        return [x, y];
+      };
+      let lines = "", dots = "";
+      for (let st = 1; st < STAGES; st++) {
+        for (let ix = 0; ix < st; ix++) {
+          const a = pos(st, ix);
+          [[st + 1, ix], [st + 1, ix + 1]].forEach(nn => {
+            const b = pos(nn[0], nn[1]);
+            const on = visited[st + "-" + ix] && visited[nn[0] + "-" + nn[1]];
+            lines += `<line x1="${a[0]}" y1="${a[1]}" x2="${b[0]}" y2="${b[1]}"
+              stroke="${on ? "#19f0ff" : "rgba(255,255,255,.16)"}"
+              stroke-width="${on ? 3 : 1.5}"/>`;
+          });
+        }
+      }
+      for (let st = 1; st <= STAGES; st++) {
+        for (let ix = 0; ix < st; ix++) {
+          const c = pos(st, ix);
+          const key = st + "-" + ix;
+          const isGoal = st === STAGES;
+          const on = visited[key];
+          const col = on ? (isGoal ? "#ffe14a" : "#19f0ff") : "rgba(255,255,255,.22)";
+          dots += `<circle cx="${c[0]}" cy="${c[1]}" r="${on ? 6 : 4}" fill="${col}"
+            ${on ? 'stroke="#fff" stroke-width="1.5"' : ""}/>`;
+          if (isGoal)
+            dots += `<text x="${c[0]}" y="${c[1] + 18}" text-anchor="middle"
+              font-size="10" fill="${on ? "#ffe14a" : "rgba(255,255,255,.3)"}"
+              font-family="Arial">${ROUTE[key].goal}</text>`;
+        }
+      }
+      return `<svg viewBox="0 0 ${W} ${H}" width="100%" preserveAspectRatio="xMidYMid meet">
+        ${lines}${dots}</svg>`;
+    }
+
     _flash(msg, color) {
       const f = this.dom.flash;
       f.textContent = msg;
       if (color) f.style.webkitTextStroke = "2px " + color;
       f.classList.remove("hide");
-      // restart CSS animation
       f.style.animation = "none";
-      // force reflow
       void f.offsetWidth;
       f.style.animation = "";
       clearTimeout(this._flashT);
-      this._flashT = setTimeout(() => f.classList.add("hide"), 900);
+      this._flashT = setTimeout(() => f.classList.add("hide"), 1100);
     }
 
     /* ---- main loop ---- */
     _frame(t) {
       let dt = (t - this.last) / 1000;
       this.last = t;
-      if (dt > 0.05) dt = 0.05;          // clamp big stalls
+      if (dt > 0.05) dt = 0.05;
       if (this.state === "playing") this._update(dt);
       this._render();
       requestAnimationFrame(n => this._frame(n));
@@ -858,7 +1200,6 @@
 
     _update(dt) {
       const road = this.road;
-      const trackLen = road.trackLength;
       const speedPct = this.speed / MAX_SPEED;
 
       // ---- boost ----
@@ -880,47 +1221,74 @@
       // ---- steering ----
       const playerSeg = road.segAt(this.position + PLAYER_Z);
       const dx = dt * 2.7 * Math.max(0.30, speedPct);
-      const steer = this.input.axis;            // analog, -1 .. 1
+      const steer = this.input.axis;
       this.playerX += dx * steer;
       this.steerVis += (steer - this.steerVis) * Math.min(1, dt * 12);
-      // centrifugal push on curves
       this.playerX -= dx * speedPct * playerSeg.curve * CENTRIFUGAL;
 
       // ---- throttle ----
-      if (this.boostT > 0) {
-        this.speed = Util.accel(this.speed, ACCEL * 1.6, dt);
-      } else if (this.input.gas) {
-        this.speed = Util.accel(this.speed, ACCEL, dt);
-      } else if (this.input.brake) {
-        this.speed = Util.accel(this.speed, BRAKING, dt);
-      } else {
-        this.speed = Util.accel(this.speed, DECEL, dt);
-      }
-      // off-road penalty
-      if ((this.playerX < -1 || this.playerX > 1) && this.speed > OFFROAD_LIMIT) {
+      if (this.boostT > 0) this.speed = Util.accel(this.speed, ACCEL * 1.6, dt);
+      else if (this.input.gas) this.speed = Util.accel(this.speed, ACCEL, dt);
+      else if (this.input.brake) this.speed = Util.accel(this.speed, BRAKING, dt);
+      else this.speed = Util.accel(this.speed, DECEL, dt);
+      if ((this.playerX < -1 || this.playerX > 1) && this.speed > OFFROAD_LIMIT)
         this.speed = Util.accel(this.speed, OFFROAD_DECEL, dt);
-      }
       this.playerX = Util.clamp(this.playerX, -2.2, 2.2);
       this.speed = Util.clamp(this.speed, 0, curMax);
 
-      // ---- advance ----
+      // ---- advance (monotonic, no looping) ----
       const adv = dt * this.speed;
-      this.position = Util.increase(this.position, adv, trackLen);
+      this.position += adv;
       this.traveled += adv;
+
+      // ---- branching / checkpoint / finish ----
+      const node = this.curNode;
+      const playerSegIdx = Math.floor((this.position + PLAYER_Z) / SEG_LEN);
+
+      // heads-up flash as the fork approaches
+      if (node.stage < STAGES && !this.forkFlashed &&
+          playerSegIdx >= node.lockSeg - 150) {
+        this.forkFlashed = true;
+        this.audio.sfx("fork");
+        this._flash("CHOOSE YOUR ROUTE", "#ffd24a");
+      }
+
+      // lock the branch from the player's side, build the next node
+      if (!node.committed && playerSegIdx >= node.lockSeg) {
+        if (node.stage >= STAGES) {
+          node.committed = true;        // final stretch: ride to the goal
+        } else {
+          const goRight = this.playerX >= 0;
+          const next = road.commitBranch(node, goRight, node.theme);
+          this._spawnTraffic(next);
+          this.path.push({ stage: next.stage, index: next.index, theme: next.theme });
+        }
+      }
+
+      // crossing into the next node = checkpoint
+      if (node.committed && node.stage < STAGES && playerSegIdx > node.endSeg) {
+        const nx = road.nodes[road.nodes.indexOf(node) + 1];
+        if (nx) {
+          this.curNode = nx;
+          this.stageNo = nx.stage;
+          this.timeLeft += CP_BONUS_TIME;
+          this.scoreF += 1500;
+          this.forkFlashed = false;
+          this.audio.sfx("checkpoint");
+          this._flash("STAGE " + nx.stage + " — " + nx.name, "#19f0ff");
+        }
+      }
+
+      // reached the end of a stage-5 node => WIN
+      if (node.stage >= STAGES && playerSegIdx >= node.endSeg) {
+        this._updateHUD();
+        this._finish(node);
+        return;
+      }
 
       // ---- traffic ----
       this._updateCars(dt);
       this._collisions(playerSeg);
-
-      // ---- checkpoint ----
-      if (this.traveled >= this.nextCP) {
-        this.nextCP += CP_DISTANCE;
-        this.checkpoint++;
-        this.timeLeft += CP_BONUS_TIME;
-        this.scoreF += 1000;
-        this.audio.sfx("checkpoint");
-        this._flash("CHECKPOINT!", "#19f0ff");
-      }
 
       // ---- score ----
       this.scoreF += this.speed * dt * 0.012;
@@ -935,35 +1303,31 @@
         return;
       }
 
-      // ---- camera shake decay ----
       if (this.shake > 0) this.shake = Math.max(0, this.shake - dt * 14);
-
-      this.audio.updateEngine(this.speed / MAX_SPEED, this.boostT > 0);
+      this.audio.updateEngine(speedPct, this.boostT > 0);
       this._updateHUD();
     }
 
     _updateCars(dt) {
-      const road = this.road, trackLen = road.trackLength;
+      const road = this.road;
       for (let i = 0; i < this.cars.length; i++) {
         const car = this.cars[i];
         const oldSeg = road.segAt(car.z);
-        // gentle AI: dodge the player when overtaken
-        const rel = Util.loopDelta(car.z, this.position, trackLen);
+        const rel = car.z - this.position;
         if (rel > 0 && rel < SEG_LEN * 14) {
           const lateral = car.offset - this.playerX;
-          if (Math.abs(lateral) < 0.55) {
+          if (Math.abs(lateral) < 0.55)
             car.offset += (lateral >= 0 ? 1 : -1) * dt * 0.7;
-          }
         }
         car.offset = Util.clamp(car.offset, -1.6, 1.6);
-        car.z = Util.increase(car.z, dt * car.speed, trackLen);
+        car.z += dt * car.speed;
+        if (car.z >= road.trackLength - SEG_LEN) car.z = road.trackLength - SEG_LEN - 1;
         const newSeg = road.segAt(car.z);
         if (oldSeg !== newSeg) {
           const k = oldSeg.cars.indexOf(car);
           if (k >= 0) oldSeg.cars.splice(k, 1);
           newSeg.cars.push(car);
         }
-        // near-miss detection: player overtakes car (rel sign flips + -> -)
         if (car.prevRel > 0 && rel <= 0 && !car.counted) {
           car.counted = true;
           const gap = Math.abs(car.offset - this.playerX);
@@ -973,7 +1337,6 @@
             this._flash("NEAR MISS +300", "#ffd24a");
           }
         }
-        if (rel > SEG_LEN) car.counted = false;   // re-arm for next lap
         car.prevRel = rel;
       }
     }
@@ -986,7 +1349,7 @@
         if (this.speed > car.speed &&
             Util.overlap(this.playerX, playerW, car.offset, carW, 0.8)) {
           this.speed = Math.max(car.speed * 0.5, MAX_SPEED * 0.12);
-          this.position = Util.increase(car.z, -PLAYER_Z * 1.2, this.road.trackLength);
+          this.position = Math.max(0, car.z - PLAYER_Z * 1.2);
           this.shake = 1;
           this.audio.sfx("collide");
           this._flash("CRASH!", "#ff2e88");
@@ -1003,7 +1366,8 @@
       D.timeBox.classList.toggle("low", ti <= 8);
       D.best.textContent = Math.max(this.bestScore, Math.floor(this.scoreF));
       D.dist.innerHTML = Math.floor(this.traveled / 100) + "<small>m</small>";
-      D.cp.textContent = this.checkpoint;
+      D.stage.textContent = this.stageNo + "/" + STAGES;
+      D.biome.textContent = this.curNode ? this.curNode.name : "";
       D.speed.innerHTML = Math.round(this.speed / 100) + "<small>mph</small>";
     }
 
@@ -1011,10 +1375,8 @@
     _render() {
       const ctx = this.ctx, W = this.W, H = this.H;
       const road = this.road;
-
       ctx.clearRect(0, 0, W, H);
 
-      // camera shake offset
       let shx = 0, shy = 0;
       if (this.shake > 0) {
         shx = (Math.random() - 0.5) * 16 * this.shake;
@@ -1023,19 +1385,18 @@
       ctx.save();
       ctx.translate(shx, shy);
 
-      // for non-playing states, animate a gentle demo scroll on the title
       const pos = (this.position != null) ? this.position : 0;
       const plX = (this.playerX != null) ? this.playerX : 0;
 
-      const baseSeg = (this.state === "loading" || this.state === "title")
-        ? this.road.segments.length ? this.road.segAt(performance.now() * 30) : null
-        : road.segAt(pos);
-
+      let baseSeg;
+      if ((this.state === "loading" || this.state === "title")) {
+        baseSeg = road.segments.length ? road.segments[0] : null;
+      } else {
+        baseSeg = road.segAt(pos);
+      }
       this._renderBackground(baseSeg);
-
       if (!road.segments.length || !baseSeg) { ctx.restore(); return; }
 
-      // ---- project + draw road segments ----
       const basePct = Util.percentRemaining(pos, SEG_LEN);
       const playerSeg = road.segAt(pos + PLAYER_Z);
       const playerPct = Util.percentRemaining(pos + PLAYER_Z, SEG_LEN);
@@ -1049,30 +1410,28 @@
       const drawn = [];
 
       for (let n = 0; n < DRAW_DIST; n++) {
-        const seg = segs[(baseSeg.index + n) % N];
-        const looped = seg.index < baseSeg.index;
+        const idx = baseSeg.index + n;
+        if (idx >= N) break;                 // finite road: stop at the end
+        const seg = segs[idx];
         seg.fog = Util.exponentialFog(n / DRAW_DIST, FOG_DENSITY);
         seg.clip = maxY;
 
         Util.project(seg.p1, (plX * ROAD_WIDTH) - x, playerY + CAM_HEIGHT,
-          pos - (looped ? road.trackLength : 0), CAM_DEPTH, W, H, ROAD_WIDTH);
+          pos, CAM_DEPTH, W, H, ROAD_WIDTH);
         Util.project(seg.p2, (plX * ROAD_WIDTH) - x - ddx, playerY + CAM_HEIGHT,
-          pos - (looped ? road.trackLength : 0), CAM_DEPTH, W, H, ROAD_WIDTH);
+          pos, CAM_DEPTH, W, H, ROAD_WIDTH);
 
         x += ddx;
         ddx += seg.curve;
 
         if (seg.p1.camera.z <= CAM_DEPTH ||
             seg.p2.screen.y >= seg.p1.screen.y ||
-            seg.p2.screen.y >= maxY) {
-          continue;
-        }
+            seg.p2.screen.y >= maxY) continue;
         this._renderSegment(seg);
         maxY = seg.p2.screen.y;
         drawn.push(seg);
       }
 
-      // ---- sprites + traffic, far -> near ----
       for (let i = drawn.length - 1; i >= 0; i--) {
         const seg = drawn[i];
         const p = seg.p1;
@@ -1093,116 +1452,151 @@
         }
       }
 
-      // ---- player car ----
-      if (this.state === "playing" || this.state === "countdown" ||
-          this.state === "paused") {
+      if (this.state === "playing" || this.state === "countdown" || this.state === "paused")
         this._renderPlayer();
-      }
 
       ctx.restore();
+    }
+
+    // resolve a segment's [themeA(from), themeB(to), t] blend
+    _segBlend(seg) {
+      const to = THEMES[seg.theme];
+      if (!seg.fadeFrom || seg.fade >= 1) return { a: to, b: to, t: 1 };
+      return { a: THEMES[seg.fadeFrom], b: to, t: seg.fade };
     }
 
     _renderBackground(baseSeg) {
       const ctx = this.ctx, W = this.W, H = this.H;
       const horizon = H * 0.52;
 
-      // sky
+      const themeKey = baseSeg ? baseSeg.theme : "coastSunset";
+      const fromKey = (baseSeg && baseSeg.fadeFrom && baseSeg.fade < 1) ? baseSeg.fadeFrom : null;
+      const t = baseSeg ? (baseSeg.fade != null ? baseSeg.fade : 1) : 1;
+      const cacheKey = themeKey + "|" + (fromKey || "") + "|" + (fromKey ? t.toFixed(2) : "1");
+      if (this.skyTheme !== cacheKey) {
+        this.skyGrad = this._skyFor(themeKey, fromKey, t);
+        this.skyTheme = cacheKey;
+      }
+      const blend = baseSeg ? this._segBlend(baseSeg)
+        : { a: THEMES.coastSunset, b: THEMES.coastSunset, t: 1 };
+
       ctx.fillStyle = this.skyGrad;
       ctx.fillRect(-20, -20, W + 40, H + 40);
 
-      // retro sun with horizontal slits
-      const curveOff = baseSeg ? -(baseSeg.curve * 30) : 0;
-      const px = (this.playerX != null ? this.playerX : 0);
-      const sunX = W / 2 - px * 60 + curveOff;
-      const sunY = horizon - H * 0.13;
-      const sunR = Math.min(W, H) * 0.16;
-      const sg = ctx.createLinearGradient(0, sunY - sunR, 0, sunY + sunR);
-      sg.addColorStop(0, "#fff27a");
-      sg.addColorStop(0.5, "#ff7e3d");
-      sg.addColorStop(1, "#ff2e88");
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(sunX, sunY, sunR, 0, Math.PI * 2);
-      ctx.clip();
-      ctx.fillStyle = sg;
-      ctx.fillRect(sunX - sunR, sunY - sunR, sunR * 2, sunR * 2);
-      ctx.fillStyle = "rgba(42,10,74,0.9)";
-      for (let i = 0; i < 7; i++) {
-        const yy = sunY + i * (sunR * 0.16) + sunR * 0.05;
-        ctx.fillRect(sunX - sunR, yy, sunR * 2, Math.max(2, sunR * 0.05 + i));
+      // stars (night themes)
+      const starAmt = Util.lerp(blend.a.stars || 0, blend.b.stars || 0, blend.t);
+      if (starAmt > 0.01) {
+        ctx.save();
+        ctx.fillStyle = "#fff";
+        for (let i = 0; i < this.stars.length; i++) {
+          if ((i / this.stars.length) > starAmt) continue;
+          const s = this.stars[i];
+          ctx.globalAlpha = (0.35 + 0.5 * (((i * 53) % 17) / 17)) * Math.min(1, starAmt * 1.4);
+          ctx.beginPath();
+          ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
       }
-      ctx.restore();
 
-      // parallax mountains
+      // retro sun (faded out on sun-less night themes)
+      const sunA = blend.a.sun, sunB = blend.b.sun;
+      if (sunA || sunB) {
+        const curveOff = baseSeg ? -(baseSeg.curve * 30) : 0;
+        const px = (this.playerX != null ? this.playerX : 0);
+        const sunX = W / 2 - px * 60 + curveOff;
+        const sunY = horizon - H * 0.13;
+        const sunR = Math.min(W, H) * 0.16;
+        const sA = sunA || sunB, sB = sunB || sunA;
+        const c0 = Util.rgbStr(Util.blendRgb(sA[0], sB[0], blend.t));
+        const c1 = Util.rgbStr(Util.blendRgb(sA[1], sB[1], blend.t));
+        const c2 = Util.rgbStr(Util.blendRgb(sA[2], sB[2], blend.t));
+        const sunAlpha = Util.lerp(sunA ? 1 : 0, sunB ? 1 : 0, blend.t);
+        if (sunAlpha > 0.01) {
+          const sg = ctx.createLinearGradient(0, sunY - sunR, 0, sunY + sunR);
+          sg.addColorStop(0, c0); sg.addColorStop(0.5, c1); sg.addColorStop(1, c2);
+          ctx.save();
+          ctx.globalAlpha = sunAlpha;
+          ctx.beginPath();
+          ctx.arc(sunX, sunY, sunR, 0, Math.PI * 2);
+          ctx.clip();
+          ctx.fillStyle = sg;
+          ctx.fillRect(sunX - sunR, sunY - sunR, sunR * 2, sunR * 2);
+          ctx.fillStyle = "rgba(20,4,40,0.85)";
+          for (let i = 0; i < 7; i++) {
+            const yy = sunY + i * (sunR * 0.16) + sunR * 0.05;
+            ctx.fillRect(sunX - sunR, yy, sunR * 2, Math.max(2, sunR * 0.05 + i));
+          }
+          ctx.restore();
+        }
+      }
+
+      // parallax mountains, theme-tinted
       const pts = this.mountains;
       const span = pts.length - 1;
-      const off = (((this.position || 0) * 0.00006) + (px * 0.03)) % 1;
+      const px = (this.playerX != null ? this.playerX : 0);
       const baseY = horizon;
       const mh = H * 0.30;
-      ctx.fillStyle = "#3a1466";
+      const far = Util.rgbStr(Util.blendRgb(blend.a.mtnFar, blend.b.mtnFar, blend.t));
+      const near = Util.rgbStr(Util.blendRgb(blend.a.mtnNear, blend.b.mtnNear, blend.t));
+      const steps = 96;
+
+      const off1 = (((this.position || 0) * 0.00006) + (px * 0.03)) % 1;
+      ctx.fillStyle = far;
       ctx.beginPath();
       ctx.moveTo(0, baseY);
-      const steps = 96;
       for (let i = 0; i <= steps; i++) {
         const fx = i / steps;
-        const sample = ((fx + off) * span) % span;
-        const idx = Math.floor(sample);
-        const fr = sample - idx;
+        const sample = ((fx + off1) * span) % span;
+        const idx = Math.floor(sample), fr = sample - idx;
         const yv = Util.lerp(pts[idx], pts[(idx + 1) % span], fr);
         ctx.lineTo(fx * W, baseY - yv * mh);
       }
-      ctx.lineTo(W, baseY);
-      ctx.closePath();
-      ctx.fill();
+      ctx.lineTo(W, baseY); ctx.closePath(); ctx.fill();
 
-      // closer, darker ridge
       const off2 = ((((this.position || 0) * 0.00014) + px * 0.06) % 1);
-      ctx.fillStyle = "#270e4a";
+      ctx.fillStyle = near;
       ctx.beginPath();
       ctx.moveTo(0, baseY + 4);
       for (let i = 0; i <= steps; i++) {
         const fx = i / steps;
         const sample = ((fx + off2) * span + 12) % span;
-        const idx = Math.floor(sample);
-        const fr = sample - idx;
+        const idx = Math.floor(sample), fr = sample - idx;
         const yv = Util.lerp(pts[idx], pts[(idx + 1) % span], fr);
         ctx.lineTo(fx * W, baseY - yv * mh * 0.6 + 10);
       }
-      ctx.lineTo(W, baseY + 4);
-      ctx.closePath();
-      ctx.fill();
+      ctx.lineTo(W, baseY + 4); ctx.closePath(); ctx.fill();
     }
 
     _renderSegment(seg) {
       const ctx = this.ctx, W = this.W;
       const p1 = seg.p1.screen, p2 = seg.p2.screen;
       const fog = seg.fog;
-      const col = seg.color;
+      const bl = this._segBlend(seg);
+      const pa = seg.dark ? bl.a.dark : bl.a.light;
+      const pb = seg.dark ? bl.b.dark : bl.b.light;
+      const fogHex = Util.rgbStr(Util.blendRgb(bl.a.fog, bl.b.fog, bl.t));
+      const tm = bl.t;
 
-      const grass = Util.mix(COLORS.FOG, col.grass, fog);
-      const rumble = Util.mix(COLORS.FOG, col.rumble, fog);
-      const road = Util.mix(COLORS.FOG, col.road, fog);
-      const lane = Util.mix(COLORS.FOG, col.lane, fog);
+      const grass = Util.mixThemed(pa.grass, pb.grass, tm, fogHex, fog);
+      const rumble = Util.mixThemed(pa.rumble, pb.rumble, tm, fogHex, fog);
+      const roadC = Util.mixThemed(pa.road, pb.road, tm, fogHex, fog);
+      const lane = Util.mixThemed(pa.lane, pb.lane, tm, fogHex, fog);
 
-      // grass band
       ctx.fillStyle = grass;
       ctx.fillRect(0, p2.y, W, p1.y - p2.y);
 
       const r1 = p1.w / 3, r2 = p2.w / 3;
       const l1 = p1.w / 18, l2 = p2.w / 18;
 
-      // rumble strips
       this._poly(p1.x - p1.w - r1, p1.y, p1.x - p1.w, p1.y,
                  p2.x - p2.w, p2.y, p2.x - p2.w - r2, p2.y, rumble);
       this._poly(p1.x + p1.w + r1, p1.y, p1.x + p1.w, p1.y,
                  p2.x + p2.w, p2.y, p2.x + p2.w + r2, p2.y, rumble);
-
-      // road
       this._poly(p1.x - p1.w, p1.y, p1.x + p1.w, p1.y,
-                 p2.x + p2.w, p2.y, p2.x - p2.w, p2.y, road);
+                 p2.x + p2.w, p2.y, p2.x - p2.w, p2.y, roadC);
 
-      // lane markers (only on light blocks)
-      if (col === COLORS.LIGHT) {
+      if (!seg.dark) {
         for (let k = 1; k < LANES; k++) {
           const lx1 = p1.x - p1.w + 2 * p1.w * (k / LANES);
           const lx2 = p2.x - p2.w + 2 * p2.w * (k / LANES);
@@ -1259,13 +1653,11 @@
       ctx.translate(cx, cy);
       ctx.rotate(tilt);
 
-      // ground shadow
       ctx.fillStyle = "rgba(0,0,0,0.38)";
       ctx.beginPath();
       ctx.ellipse(0, destH * 0.46, destW * 0.5, destH * 0.14, 0, 0, Math.PI * 2);
       ctx.fill();
 
-      // boost flames
       if (this.boostT > 0) {
         const fl = destH * (0.3 + Math.random() * 0.25);
         const g = ctx.createLinearGradient(0, destH * 0.42, 0, destH * 0.42 + fl);
@@ -1290,10 +1682,7 @@
 
   /* ---- boot ---- */
   window.addEventListener("DOMContentLoaded", () => {
-    // a tap anywhere unlocks audio on iOS Safari
-    const unlock = () => {
-      window.__nh && window.__nh.audio.resume();
-    };
+    const unlock = () => { window.__nh && window.__nh.audio.resume(); };
     document.addEventListener("pointerdown", unlock, { once: true });
     document.addEventListener("touchstart", unlock, { once: true });
     window.__nh = new Game();
