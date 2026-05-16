@@ -105,54 +105,24 @@ body { position: fixed; inset: 0; }
   line-height: 1.6;
 }
 
-/* Touch controls */
-#touch-controls {
+/* Tap-to-jump hint (briefly shown when play starts) */
+#tap-hint {
   position: absolute;
-  inset: 0;
-  z-index: 10;
-  pointer-events: none;
-  display: none;
-}
-#touch-controls.active { display: block; }
-
-.pad-left, .pad-right {
-  position: absolute;
-  bottom: max(20px, env(safe-area-inset-bottom));
-  display: flex;
-  gap: 16px;
-}
-.pad-left { left: max(16px, env(safe-area-inset-left)); }
-.pad-right { right: max(16px, env(safe-area-inset-right)); }
-
-.ctrl {
-  pointer-events: auto;
-  font-family: inherit;
-  width: 74px;
-  height: 74px;
-  border-radius: 50%;
-  border: 3px solid rgba(255,255,255,.55);
-  background: rgba(255,255,255,.16);
+  left: 50%;
+  bottom: max(40px, calc(env(safe-area-inset-bottom) + 30px));
+  transform: translateX(-50%);
   color: #fff;
-  font-size: 26px;
   font-weight: 800;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  font-size: clamp(14px, 4.5vw, 22px);
+  letter-spacing: 1px;
+  padding: 10px 22px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.32);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
-  touch-action: none;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .4s ease;
+  z-index: 8;
 }
-.ctrl.jump {
-  width: 92px;
-  height: 92px;
-  font-size: 18px;
-  background: rgba(229, 37, 33, 0.32);
-  border-color: rgba(255,255,255,.65);
-}
-.ctrl.pressed { background: rgba(255,255,255,.42); transform: scale(0.94); }
-.ctrl.jump.pressed { background: rgba(229, 37, 33, 0.6); }
-
-@media (min-height: 760px) {
-  .ctrl { width: 84px; height: 84px; }
-  .ctrl.jump { width: 104px; height: 104px; }
-}
+#tap-hint.show { opacity: 1; }

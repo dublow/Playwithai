@@ -6,7 +6,7 @@ A growing collection of AI-built games and apps. **Each project lives in its own
 
 | Project | Folder | Description |
 |---|---|---|
-| **Super Run** | [`mario-game/`](mario-game/) | A Mario-style platformer for iPhone & desktop — run, jump, stomp enemies, collect coins across 2 levels. |
+| **Super Run** | [`mario-game/`](mario-game/) | A Mario-style **one-tap auto-runner** for iPhone & desktop — Mario runs by himself, tap to jump, stomp enemies and grab coins across 2 levels. |
 
 ## ▶️ Play it
 
@@ -19,9 +19,13 @@ Once GitHub Pages is enabled (see below), the site is live at:
 
 ## 📱 Super Run controls
 
-- **iPhone / touch:** on-screen ◀ ▶ buttons to move, **JUMP** button to jump (hold for a higher jump).
-- **Desktop:** Arrow keys or `A`/`D` to move, `Space` / `↑` / `W` to jump.
-- Stomp enemies from above, grab coins, hit `?` blocks, and reach the flag. You have 3 lives.
+It's a one-tap auto-runner: **Mario runs forward automatically** and the
+landscape scrolls by itself. The only control is **jump**.
+
+- **iPhone / touch:** tap *anywhere* on the screen to jump.
+- **Desktop:** click anywhere, or press `Space` / `↑` / `W`.
+- Time your jumps to clear pits and stomp enemies from above. Grab the
+  coin trails and reach the flag. You have 3 lives across 2 levels.
 
 The game is pure HTML5 Canvas — no assets, no dependencies, fully offline-capable.
 
@@ -43,7 +47,7 @@ pick the branch and folder **`/ (root)`**, then Save.
 ```
 .
 ├── index.html            # Portfolio landing page (links every project)
-├── mario-game/           # Super Run platformer
+├── mario-game/           # Super Run auto-runner
 │   ├── index.html
 │   ├── style.css
 │   └── game.js

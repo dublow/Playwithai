@@ -12,12 +12,8 @@ const VIEW_H = ROWS * TILE;      // world view height in px (480)
 
 const GRAVITY = 2200;
 const MAX_FALL = 900;
-const MOVE_ACCEL = 1700;
-const AIR_ACCEL = 1100;
-const GROUND_FRICTION = 2000;
-const MAX_RUN = 235;
+const RUN_SPEED = 200;           // auto-runner: constant rightward speed
 const JUMP_VEL = -720;
-const JUMP_CUT = -260;           // variable jump height
 const STOMP_BOUNCE = -430;
 const ENEMY_SPEED = 72;
 const COYOTE = 0.10;
@@ -46,12 +42,11 @@ resize();
 /* ---------------- Levels ----------------
    Built from a compact definition so they stay easy to edit.
    ground: list of [startCol, endCol] solid floor spans (rows 13-14)
-   solids: [col, row, len]  brick platforms
-   q:      [col, row]       question blocks (give a coin when bumped)
-   coins:  [col, row]
-   enemies:[col, row]
-   start:  player spawn col
-   flag:   goal col
+   ground:  list of [startCol, endCol) solid floor spans (gaps = pits)
+   enemies: list of ground columns where a Goomba walks
+   start:   player spawn col   flag: goal col
+   Coins are generated automatically along the run path and as arcs
+   over every pit and enemy, so a well-timed jump scoops them up.
 ----------------------------------------------------------------- */
 const LEVELS = [
   {
@@ -59,61 +54,19 @@ const LEVELS = [
     start: 3,
     flag: 186,
     ground: [[0, 30], [32, 60], [62, 92], [94, 124], [126, 156], [158, 190]],
-    solids: [
-      [12, 10, 3], [24, 11, 3],
-      [40, 10, 3], [52, 11, 2],
-      [70, 10, 4], [84, 11, 2],
-      [105, 10, 3], [118, 11, 3],
-      [140, 10, 3], [152, 11, 2], [172, 10, 3],
-    ],
-    q: [[20, 10], [48, 10], [78, 10], [110, 10], [138, 10], [180, 10]],
-    coins: [
-      [6, 12], [10, 12], [13, 9], [16, 12], [22, 12], [28, 12],
-      [34, 12], [40, 12], [41, 9], [46, 12], [52, 12], [58, 12],
-      [64, 12], [70, 12], [71, 9], [72, 9], [76, 12], [82, 12], [88, 12],
-      [96, 12], [102, 12], [106, 9], [108, 12], [114, 12], [120, 12],
-      [128, 12], [134, 12], [140, 12], [141, 9], [146, 12], [152, 12],
-      [160, 12], [166, 12], [172, 12], [173, 9], [178, 12], [184, 12],
-    ],
-    enemies: [
-      [18, 12], [26, 12], [44, 12], [54, 12], [70, 12], [80, 12],
-      [100, 12], [110, 12], [134, 12], [146, 12], [168, 12], [180, 12],
-    ],
+    enemies: [18, 26, 44, 54, 70, 80, 100, 110, 134, 146, 168, 180],
   },
   {
     width: 200,
     start: 3,
     flag: 196,
     ground: [[0, 24], [26, 48], [50, 72], [74, 98], [100, 124], [126, 150], [152, 176], [178, 200]],
-    solids: [
-      [10, 11, 3], [18, 10, 2],
-      [34, 10, 3], [42, 11, 2],
-      [60, 10, 3], [68, 11, 3],
-      [86, 10, 3], [94, 11, 2],
-      [112, 10, 3], [120, 11, 3],
-      [140, 10, 3], [158, 11, 2], [166, 10, 3], [186, 11, 2],
-    ],
-    q: [[28, 10], [54, 10], [80, 10], [106, 10], [132, 10], [160, 10], [190, 10]],
-    coins: [
-      [6, 12], [11, 9], [12, 12], [18, 12], [22, 12],
-      [28, 12], [34, 12], [35, 9], [40, 12], [46, 12],
-      [52, 12], [58, 12], [61, 9], [64, 12], [70, 12],
-      [76, 12], [82, 12], [87, 9], [88, 12], [94, 12],
-      [102, 12], [108, 12], [113, 9], [114, 12], [120, 12],
-      [128, 12], [134, 12], [141, 9], [142, 12], [148, 12],
-      [154, 12], [160, 12], [167, 9], [168, 12], [174, 12],
-      [180, 12], [186, 12], [192, 12],
-    ],
-    enemies: [
-      [18, 12], [28, 12], [40, 12], [56, 12], [66, 12],
-      [82, 12], [92, 12], [108, 12], [118, 12], [130, 12],
-      [144, 12], [158, 12], [170, 12], [184, 12],
-    ],
+    enemies: [18, 30, 40, 56, 66, 82, 92, 108, 118, 130, 144, 158, 170, 184],
   },
 ];
 
-/* Tile codes: 0 empty, 1 ground, 2 brick, 3 question, 4 used block */
-function isSolid(c) { return c === 1 || c === 2 || c === 3 || c === 4; }
+/* Tile codes: 0 empty, 1 ground (no other solids in this auto-runner) */
+function isSolid(c) { return c === 1; }
 
 function buildLevel(def) {
   const W = def.width;
@@ -123,15 +76,33 @@ function buildLevel(def) {
   for (const [s, e] of def.ground) {
     for (let c = s; c < e && c < W; c++) { grid[13][c] = 1; grid[14][c] = 1; }
   }
-  for (const [c, r, len] of def.solids) {
-    for (let i = 0; i < len; i++) if (grid[r] && c + i < W) grid[r][c + i] = 2;
-  }
-  for (const [c, r] of def.q) if (grid[r]) grid[r][c] = 3;
+  const ground = (c) => c >= 0 && c < W && grid[13][c] === 1;
+  const enemyCols = def.enemies;
 
-  const coins = def.coins.map(([c, r]) => ({
-    x: c * TILE + TILE / 2, y: r * TILE + TILE / 2, got: false, t: Math.random() * Math.PI * 2,
-  }));
-  const enemies = def.enemies.map(([c, r]) => makeEnemy(c * TILE, r * TILE));
+  // Coins: a flowing trail along the ground, plus an arc over each
+  // pit and each enemy (rows 10-11 are reliably scooped mid-jump).
+  const pts = [];
+  for (let c = 4; c < W - 4; c++) {
+    if (!ground(c) || c % 3 !== 0) continue;
+    if (enemyCols.some((e) => Math.abs(e - c) <= 1)) continue;
+    pts.push([c, 12]);
+  }
+  for (let c = 0; c < W; c++) {
+    if (ground(c) || (c > 0 && ground(c - 1))) continue;     // start of a pit run
+    let b = c; while (b < W && !ground(b)) b++;
+    b -= 1;                                                   // last pit col
+    pts.push([c - 2, 11], [c - 1, 10], [c, 10], [b, 10], [b + 1, 10], [b + 2, 11]);
+    c = b;
+  }
+  for (const e of enemyCols) pts.push([e - 1, 11], [e, 10], [e + 1, 11]);
+
+  const coins = pts
+    .filter(([c]) => c >= 0 && c < W)
+    .map(([c, r]) => ({
+      x: c * TILE + TILE / 2, y: r * TILE + TILE / 2, got: false,
+      t: Math.random() * Math.PI * 2,
+    }));
+  const enemies = enemyCols.map((c) => makeEnemy(c * TILE, 12 * TILE));
 
   return {
     grid, W, pixelW: W * TILE,
@@ -196,6 +167,14 @@ function respawn(full) {
   }
 }
 
+let tapHintTimer = 0;
+function flashTapHint() {
+  if (!tapHint) return;
+  tapHint.classList.add("show");
+  clearTimeout(tapHintTimer);
+  tapHintTimer = setTimeout(() => tapHint.classList.remove("show"), 2200);
+}
+
 function startGame() {
   game.score = 0;
   game.coins = 0;
@@ -204,47 +183,41 @@ function startGame() {
   loadLevel(0);
   game.state = "play";
   hideOverlay();
+  flashTapHint();
 }
 
-/* ---------------- Input ---------------- */
-const input = { left: false, right: false, jump: false };
+/* ---------------- Input ----------------
+   Auto-runner: the only control is "jump". Tap anywhere on the screen
+   (or Space / Up / W / click) to jump. Mario runs by himself. */
+const input = { jump: false };
+const JUMP_KEYS = { ArrowUp: 1, KeyW: 1, Space: 1 };
 
-const keymap = {
-  ArrowLeft: "left", KeyA: "left",
-  ArrowRight: "right", KeyD: "right",
-  ArrowUp: "jump", KeyW: "jump", Space: "jump",
-};
 addEventListener("keydown", (e) => {
-  const k = keymap[e.code];
-  if (k) { input[k] = true; e.preventDefault(); }
-  if (e.code === "Enter" && (game.state === "menu" || game.state === "dead" || game.state === "win")) {
+  if (JUMP_KEYS[e.code]) { input.jump = true; e.preventDefault(); }
+  if ((e.code === "Enter" || e.code === "Space") &&
+      (game.state === "menu" || game.state === "dead" || game.state === "win")) {
     overlayAction();
   }
 });
 addEventListener("keyup", (e) => {
-  const k = keymap[e.code];
-  if (k) { input[k] = false; e.preventDefault(); }
+  if (JUMP_KEYS[e.code]) { input.jump = false; e.preventDefault(); }
 });
 
-function bindButton(id, key) {
-  const el = document.getElementById(id);
-  const on = (e) => { e.preventDefault(); input[key] = true; el.classList.add("pressed"); resumeAudio(); };
-  const off = (e) => { e.preventDefault(); input[key] = false; el.classList.remove("pressed"); };
-  el.addEventListener("touchstart", on, { passive: false });
-  el.addEventListener("touchend", off, { passive: false });
-  el.addEventListener("touchcancel", off, { passive: false });
-  el.addEventListener("pointerdown", on);
-  el.addEventListener("pointerup", off);
-  el.addEventListener("pointercancel", off);
-  el.addEventListener("pointerleave", off);
-  el.addEventListener("contextmenu", (e) => e.preventDefault());
-}
-bindButton("btn-left", "left");
-bindButton("btn-right", "right");
-bindButton("btn-jump", "jump");
-
-const isTouch = window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
-if (isTouch) document.getElementById("touch-controls").classList.add("active");
+// Whole screen is the jump pad while playing.
+const wrap = document.getElementById("game-wrap");
+const tapHint = document.getElementById("tap-hint");
+const tapDown = (e) => {
+  resumeAudio();
+  if (game.state === "play") { input.jump = true; if (e.cancelable) e.preventDefault(); }
+};
+const tapUp = () => { input.jump = false; };
+wrap.addEventListener("touchstart", tapDown, { passive: false });
+wrap.addEventListener("touchend", tapUp, { passive: false });
+wrap.addEventListener("touchcancel", tapUp, { passive: false });
+wrap.addEventListener("pointerdown", tapDown);
+wrap.addEventListener("pointerup", tapUp);
+wrap.addEventListener("pointercancel", tapUp);
+wrap.addEventListener("contextmenu", (e) => e.preventDefault());
 
 /* ---------------- Audio (tiny WebAudio beeps) ---------------- */
 let actx = null;
@@ -270,7 +243,6 @@ const sfx = {
   coin: () => { beep(880, 0.07); setTimeout(() => beep(1320, 0.1), 60); },
   stomp: () => beep(180, 0.12, "sawtooth", 0.07),
   hurt: () => { beep(300, 0.18, "sawtooth", 0.07); setTimeout(() => beep(150, 0.25, "sawtooth", 0.07), 120); },
-  block: () => beep(420, 0.08, "square", 0.05),
   win: () => { [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => beep(f, 0.18, "triangle", 0.06), i * 130)); },
 };
 
@@ -288,10 +260,10 @@ overlay.addEventListener("click", (e) => { if (e.target.id === "start-btn") retu
 function menuPanel() {
   showOverlay(
     `<h1>SUPER RUN</h1>
-     <p class="sub">A Mario-style platformer</p>
-     <p class="hint">Reach the flag. Stomp enemies. Grab coins.</p>
+     <p class="sub">A one-tap auto-runner</p>
+     <p class="hint">Mario runs by himself.<br/>Tap anywhere to jump.</p>
      <button id="start-btn" class="big-btn" type="button">TAP TO PLAY</button>
-     <p class="controls-note">iPhone: use the on-screen buttons.<br/>Desktop: Arrows / A&nbsp;D to move, Space / Up / W to jump.</p>`);
+     <p class="controls-note">iPhone: tap anywhere to jump.<br/>Desktop: click or Space / Up / W.</p>`);
   document.getElementById("start-btn").addEventListener("click", overlayAction);
 }
 function deadPanel() {
@@ -317,10 +289,6 @@ function tileAt(px, py) {
   if (r < 0 || r >= ROWS || c < 0 || c >= lv.W) return 0;
   return lv.grid[r][c];
 }
-function setTile(c, r, v) {
-  const lv = game.level;
-  if (r >= 0 && r < ROWS && c >= 0 && c < lv.W) lv.grid[r][c] = v;
-}
 function addParticles(x, y, color, n, spread) {
   for (let i = 0; i < n; i++) {
     game.particles.push({
@@ -341,8 +309,6 @@ function collideAxis(ent, axis) {
   const top = Math.floor(ent.y / TILE);
   const bottom = Math.floor((ent.y + ent.h - 0.01) / TILE);
 
-  let hitBlock = null;
-
   for (let r = top; r <= bottom; r++) {
     for (let c = left; c <= right; c++) {
       if (r < 0 || r >= ROWS || c < 0 || c >= lv.W) continue;
@@ -352,36 +318,24 @@ function collideAxis(ent, axis) {
         else if (ent.vx < 0) ent.x = (c + 1) * TILE;
         ent.vx = 0;
         ent.hitWall = true;
-      } else {
-        if (ent.vy > 0) {
-          ent.y = r * TILE - ent.h;
-          ent.vy = 0;
-          ent.onGround = true;
-        } else if (ent.vy < 0) {
-          ent.y = (r + 1) * TILE;
-          ent.vy = 0;
-          hitBlock = { c, r, code: lv.grid[r][c] };
-        }
+      } else if (ent.vy > 0) {
+        ent.y = r * TILE - ent.h;
+        ent.vy = 0;
+        ent.onGround = true;
+      } else if (ent.vy < 0) {
+        ent.y = (r + 1) * TILE;
+        ent.vy = 0;
       }
     }
   }
-  return hitBlock;
 }
 
 function updatePlayer(dt) {
-  // horizontal input
-  const accel = player.onGround ? MOVE_ACCEL : AIR_ACCEL;
-  if (input.left && !input.right) { player.vx -= accel * dt; player.face = -1; }
-  else if (input.right && !input.left) { player.vx += accel * dt; player.face = 1; }
-  else if (player.onGround) {
-    const f = GROUND_FRICTION * dt;
-    if (player.vx > f) player.vx -= f;
-    else if (player.vx < -f) player.vx += f;
-    else player.vx = 0;
-  }
-  player.vx = Math.max(-MAX_RUN, Math.min(MAX_RUN, player.vx));
+  // auto-run: constant rightward speed
+  player.vx = RUN_SPEED;
+  player.face = 1;
 
-  // jump buffering + coyote time
+  // jump buffering + coyote time (tap = full, consistent jump)
   if (input.jump && !player.jumpHeld) player.buffer = JUMP_BUFFER;
   player.jumpHeld = input.jump;
   player.buffer -= dt;
@@ -395,7 +349,6 @@ function updatePlayer(dt) {
     player.coyote = 0;
     sfx.jump();
   }
-  if (!input.jump && player.jumping && player.vy < JUMP_CUT) player.vy = JUMP_CUT;
   if (player.vy >= 0) player.jumping = false;
 
   // gravity
@@ -408,22 +361,8 @@ function updatePlayer(dt) {
   collideAxis(player, "x");
 
   player.y += player.vy * dt;
-  const block = collideAxis(player, "y");
+  collideAxis(player, "y");
   if (player.onGround) player.coyote = COYOTE;
-
-  if (block) {
-    if (block.code === 3) {           // question block -> coin reward
-      setTile(block.c, block.r, 4);
-      game.score += 200; game.coins += 1;
-      addParticles(block.c * TILE + TILE / 2, block.r * TILE, "#ffd23f", 8, 220);
-      sfx.coin();
-    } else if (block.code === 2) {    // brick -> break it
-      setTile(block.c, block.r, 0);
-      game.score += 50;
-      addParticles(block.c * TILE + TILE / 2, block.r * TILE + TILE / 2, "#c1620f", 10, 260);
-      sfx.block();
-    }
-  }
 
   // animation phase
   if (player.onGround && Math.abs(player.vx) > 10) player.anim += dt * Math.abs(player.vx) * 0.05;
@@ -592,37 +531,14 @@ function drawTiles() {
   const c1 = Math.min(lv.W - 1, Math.ceil((game.cameraX + viewW) / TILE) + 1);
   for (let c = c0; c <= c1; c++) {
     for (let r = 0; r < ROWS; r++) {
-      const code = lv.grid[r][c];
-      if (code === 0) continue;
+      if (lv.grid[r][c] !== 1) continue;
       const x = w2s(c * TILE);
       const y = r * TILE * scale;
       const s = TILE * scale;
-      if (code === 1) {
-        ctx.fillStyle = (r === 13) ? "#3aa53a" : "#8a5a2b";
-        ctx.fillRect(x, y, s + 1, s + 1);
-        if (r === 13) { ctx.fillStyle = "#2f8a2f"; ctx.fillRect(x, y + s * 0.7, s + 1, s * 0.3); }
-        else { ctx.fillStyle = "#6f4420"; ctx.fillRect(x, y, s + 1, s * 0.18); }
-      } else if (code === 2) {
-        ctx.fillStyle = "#c1620f";
-        ctx.fillRect(x, y, s + 1, s + 1);
-        ctx.fillStyle = "rgba(0,0,0,0.18)";
-        ctx.fillRect(x, y + s * 0.5, s + 1, 2);
-        ctx.fillRect(x + s * 0.5, y, 2, s * 0.5);
-        ctx.fillRect(x + s * 0.25, y + s * 0.5, 2, s * 0.5);
-      } else if (code === 3) {
-        const pulse = 0.5 + 0.5 * Math.sin(game.time * 6);
-        ctx.fillStyle = `rgb(255,${180 + pulse * 40},40)`;
-        ctx.fillRect(x, y, s + 1, s + 1);
-        ctx.fillStyle = "#7a4a00";
-        ctx.font = `bold ${s * 0.7}px sans-serif`;
-        ctx.textAlign = "center"; ctx.textBaseline = "middle";
-        ctx.fillText("?", x + s / 2, y + s / 2 + 1);
-      } else if (code === 4) {
-        ctx.fillStyle = "#9a7b3a";
-        ctx.fillRect(x, y, s + 1, s + 1);
-        ctx.strokeStyle = "rgba(0,0,0,0.25)";
-        ctx.strokeRect(x + 2, y + 2, s - 4, s - 4);
-      }
+      ctx.fillStyle = (r === 13) ? "#3aa53a" : "#8a5a2b";
+      ctx.fillRect(x, y, s + 1, s + 1);
+      if (r === 13) { ctx.fillStyle = "#2f8a2f"; ctx.fillRect(x, y + s * 0.7, s + 1, s * 0.3); }
+      else { ctx.fillStyle = "#6f4420"; ctx.fillRect(x, y, s + 1, s * 0.18); }
     }
   }
 }
