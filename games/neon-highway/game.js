@@ -377,16 +377,23 @@
    * -------------------------------------------------------- */
   class Input {
     constructor() {
-      this.left = false; this.right = false;
+      this.keyL = false; this.keyR = false;
+      this.joyAxis = 0;                       // analog from joystick
       this.gas = false; this.brake = false; this.boost = false;
+      this._joy = null;
       this._bindKeys();
-      this._bindTouch();
+      this._bindButtons();
+      this._bindJoystick();
+    }
+    // combined steering, clamped -1 .. 1
+    get axis() {
+      return Util.clamp(this.joyAxis + (this.keyR ? 1 : 0) - (this.keyL ? 1 : 0), -1, 1);
     }
     _bindKeys() {
       const k = (e, v) => {
         switch (e.code) {
-          case "ArrowLeft": case "KeyA": this.left = v; break;
-          case "ArrowRight": case "KeyD": this.right = v; break;
+          case "ArrowLeft": case "KeyA": this.keyL = v; break;
+          case "ArrowRight": case "KeyD": this.keyR = v; break;
           case "ArrowUp": case "KeyW": this.gas = v; break;
           case "ArrowDown": case "KeyS": this.brake = v; break;
           case "Space": this.boost = v; break;
@@ -405,19 +412,84 @@
       el.addEventListener("pointerup", off);
       el.addEventListener("pointercancel", off);
       el.addEventListener("pointerleave", off);
-      // fallback for very old iOS
       el.addEventListener("touchstart", on, { passive: false });
       el.addEventListener("touchend", off, { passive: false });
     }
-    _bindTouch() {
-      this._hold(document.getElementById("steer-left"), v => this.left = v);
-      this._hold(document.getElementById("steer-right"), v => this.right = v);
+    _bindButtons() {
       this._hold(document.getElementById("pedal-gas"), v => this.gas = v);
       this._hold(document.getElementById("pedal-brake"), v => this.brake = v);
       this._hold(document.getElementById("pedal-boost"), v => this.boost = v);
     }
+    _pt(e) {
+      if (e.clientX != null) return e;
+      if (e.changedTouches && e.changedTouches[0]) return e.changedTouches[0];
+      if (e.touches && e.touches[0]) return e.touches[0];
+      return null;
+    }
+    _bindJoystick() {
+      const zone = document.getElementById("joy-zone");
+      const base = document.getElementById("joystick");
+      const knob = document.getElementById("joy-knob");
+      if (!zone || !base || !knob) return;
+      const J = this._joy = { id: null, ox: 0, oy: 0, r: 60 };
+
+      const start = (e) => {
+        const p = this._pt(e);
+        if (!p || J.id !== null) return;
+        e.preventDefault();
+        J.id = (e.pointerId != null) ? e.pointerId : "t";
+        J.ox = p.clientX; J.oy = p.clientY;
+        const sz = base.offsetWidth || 150;
+        J.r = sz * 0.40;
+        base.style.left = (p.clientX - sz / 2) + "px";
+        base.style.top = (p.clientY - sz / 2) + "px";
+        base.style.right = "auto";
+        base.style.bottom = "auto";
+        base.classList.add("active");
+        knob.style.transform = "translate(0px,0px)";
+        if (e.pointerId != null && zone.setPointerCapture) {
+          try { zone.setPointerCapture(e.pointerId); } catch (err) {}
+        }
+      };
+      const move = (e) => {
+        if (J.id === null) return;
+        const p = this._pt(e);
+        if (!p) return;
+        e.preventDefault();
+        let dx = p.clientX - J.ox;
+        let dy = p.clientY - J.oy;
+        const r = J.r;
+        const d = Math.hypot(dx, dy);
+        if (d > r) { dx = dx / d * r; dy = dy / d * r; }
+        knob.style.transform = "translate(" + dx.toFixed(1) + "px," + dy.toFixed(1) + "px)";
+        let a = dx / r;
+        const dz = 0.10;                       // small dead-zone
+        a = (Math.abs(a) < dz) ? 0 : (a - Math.sign(a) * dz) / (1 - dz);
+        this.joyAxis = Util.clamp(a, -1, 1);
+      };
+      const end = (e) => {
+        if (J.id === null) return;
+        if (e && e.preventDefault) e.preventDefault();
+        J.id = null;
+        this.joyAxis = 0;
+        knob.style.transform = "translate(0px,0px)";
+        base.classList.remove("active");
+        base.style.left = base.style.top = base.style.right = base.style.bottom = "";
+      };
+
+      zone.addEventListener("pointerdown", start);
+      zone.addEventListener("pointermove", move);
+      zone.addEventListener("pointerup", end);
+      zone.addEventListener("pointercancel", end);
+      zone.addEventListener("touchstart", start, { passive: false });
+      zone.addEventListener("touchmove", move, { passive: false });
+      zone.addEventListener("touchend", end, { passive: false });
+      zone.addEventListener("touchcancel", end, { passive: false });
+    }
     reset() {
-      this.left = this.right = this.gas = this.brake = this.boost = false;
+      this.keyL = this.keyR = false;
+      this.joyAxis = 0;
+      this.gas = this.brake = this.boost = false;
     }
   }
 
@@ -807,11 +879,10 @@
 
       // ---- steering ----
       const playerSeg = road.segAt(this.position + PLAYER_Z);
-      const dx = dt * 2.6 * Math.max(0.35, speedPct);
-      let steerDir = 0;
-      if (this.input.left) { this.playerX -= dx; steerDir = -1; }
-      if (this.input.right) { this.playerX += dx; steerDir = 1; }
-      this.steerVis += ((steerDir) - this.steerVis) * Math.min(1, dt * 12);
+      const dx = dt * 2.7 * Math.max(0.30, speedPct);
+      const steer = this.input.axis;            // analog, -1 .. 1
+      this.playerX += dx * steer;
+      this.steerVis += (steer - this.steerVis) * Math.min(1, dt * 12);
       // centrifugal push on curves
       this.playerX -= dx * speedPct * playerSeg.curve * CENTRIFUGAL;
 

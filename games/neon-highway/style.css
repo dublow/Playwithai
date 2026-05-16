@@ -68,7 +68,7 @@ html, body {
    ============================================================ */
 .logo, .blink, .hud-val, .hud-label, .arcade-btn,
 #count-num, .go-title, .subtitle, .tap-start, .hi,
-.go-stats span, .go-stats b, .panel h2, #flash, .pedal, .steer span {
+.go-stats span, .go-stats b, .panel h2, #flash, .pedal {
   font-family: "Arial Black", "Arial Bold", Gadget, "Trebuchet MS", sans-serif;
   letter-spacing: 1px;
   text-transform: uppercase;
@@ -363,46 +363,60 @@ html, body {
 }
 #controls > * { pointer-events: auto; }
 
-.steer {
-  position: absolute;
-  top: 16%;
-  bottom: 0;
-  width: 33%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-bottom: calc(150px + env(safe-area-inset-bottom));
-  touch-action: none;
-  transition: transform 0.06s;
-}
-.steer span {
-  width: clamp(72px, 15vw, 116px);
-  height: clamp(72px, 15vw, 116px);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: clamp(34px, 7.5vw, 58px);
-  color: #19f0ff;
-  background: rgba(20, 2, 40, 0.34);
-  border: 2px solid rgba(25, 240, 255, 0.65);
-  box-shadow: 0 0 16px rgba(25, 240, 255, 0.45);
-  text-shadow: 0 0 12px #19f0ff;
-}
-#steer-left  { left: 0; padding-left: env(safe-area-inset-left); }
-#steer-right { right: 0; padding-right: env(safe-area-inset-right); }
-.steer.on { transform: scale(0.97); }
-.steer.on span {
-  background: rgba(25, 240, 255, 0.28);
-  border-color: #7afcff;
-  box-shadow: 0 0 22px rgba(25, 240, 255, 0.8);
+#controls {
+  --gas: clamp(86px, 17vw, 132px);
+  --brk: clamp(74px, 15vw, 112px);
+  --nos: clamp(60px, 12vw, 94px);
+  --sr: env(safe-area-inset-right);
+  --sb: env(safe-area-inset-bottom);
 }
 
+/* ---- left analog joystick ---- */
+#joy-zone {
+  position: absolute;
+  left: 0;
+  top: 14%;
+  bottom: 0;
+  width: 48%;
+  touch-action: none;
+}
+#joystick {
+  position: fixed;
+  left: calc(22px + env(safe-area-inset-left));
+  bottom: calc(20px + env(safe-area-inset-bottom));
+  width: clamp(124px, 27vw, 176px);
+  height: clamp(124px, 27vw, 176px);
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0.55;
+  transition: opacity 0.12s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+#joystick.active { opacity: 1; }
+.joy-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 50%, rgba(25,240,255,0.10), rgba(20,2,40,0.34));
+  border: 2px solid rgba(25,240,255,0.55);
+  box-shadow: 0 0 18px rgba(25,240,255,0.4), inset 0 0 22px rgba(25,240,255,0.2);
+}
+#joy-knob {
+  position: relative;
+  width: 46%;
+  height: 46%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 38%, #7afcff, #1390b3 70%, #0a4a63);
+  border: 2px solid #cdfbff;
+  box-shadow: 0 0 16px rgba(25,240,255,0.8);
+  will-change: transform;
+}
+
+/* ---- right pedal cluster: gas / nitro / brake ---- */
 .pedal {
   position: absolute;
-  bottom: calc(14px + env(safe-area-inset-bottom));
-  width: clamp(78px, 17vw, 128px);
-  height: clamp(78px, 17vw, 128px);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -412,29 +426,33 @@ html, body {
   border: 2px solid rgba(255,255,255,0.7);
   background: rgba(20, 2, 40, 0.35);
   text-shadow: 0 0 6px #000;
+  touch-action: none;
   transition: transform 0.06s, background 0.06s;
 }
-.pedal:active, .pedal.on { transform: scale(0.92); }
+.pedal.on { transform: scale(0.9); }
 
 #pedal-gas {
-  right: calc(16px + env(safe-area-inset-right));
-  background: radial-gradient(circle at 50% 38%, rgba(57,255,140,0.55), rgba(20,2,40,0.4));
+  width: var(--gas); height: var(--gas);
+  right: calc(16px + var(--sr));
+  bottom: calc(16px + var(--sb));
+  background: radial-gradient(circle at 50% 38%, rgba(57,255,140,0.6), rgba(20,2,40,0.4));
   border-color: #39ff8c;
   box-shadow: 0 0 16px rgba(57,255,140,0.5);
 }
 #pedal-brake {
-  left: calc(16px + env(safe-area-inset-left));
-  background: radial-gradient(circle at 50% 38%, rgba(255,82,119,0.55), rgba(20,2,40,0.4));
+  width: var(--brk); height: var(--brk);
+  right: calc(30px + var(--sr) + var(--gas));
+  bottom: calc(22px + var(--sb));
+  background: radial-gradient(circle at 50% 38%, rgba(255,82,119,0.6), rgba(20,2,40,0.4));
   border-color: #ff5277;
   box-shadow: 0 0 16px rgba(255,82,119,0.5);
 }
 #pedal-boost {
-  right: calc(16px + env(safe-area-inset-right));
-  bottom: calc(110px + env(safe-area-inset-bottom));
-  width: clamp(56px, 12vw, 92px);
-  height: clamp(56px, 12vw, 92px);
+  width: var(--nos); height: var(--nos);
   font-size: clamp(10px, 2.2vw, 15px);
-  background: radial-gradient(circle at 50% 38%, rgba(255,210,74,0.6), rgba(20,2,40,0.4));
+  right: calc(16px + var(--sr) + (var(--gas) - var(--nos)) / 2);
+  bottom: calc(28px + var(--sb) + var(--gas));
+  background: radial-gradient(circle at 50% 38%, rgba(255,210,74,0.65), rgba(20,2,40,0.4));
   border-color: #ffd24a;
   box-shadow: 0 0 16px rgba(255,210,74,0.55);
 }
