@@ -11,6 +11,7 @@ games/
   super-run/index.html           # 🍄 Super Run     — Mario-style auto-runner
   star-requiem/index.html        # 🚀 Star Requiem  — neon shoot 'em up
   zelda-like/index.html          # ⚔️ Mini Quest    — Zelda-style adventure
+  mega-man/index.html            # 🤖 Bolt Buster   — Mega Man-style platformer
 .github/workflows/deploy.yml     # builds the site → gh-pages branch
 ```
 
@@ -95,5 +96,16 @@ A Zelda-style top-down action adventure across a 6-room overworld.
   hearts — contact costs health, with brief invulnerability after a hit.
 - Find the hidden **key**, open the **locked door**, and grab the
   **Triforce** to win.
+
+### 🤖 Bolt Buster — `games/mega-man/`
+
+A Mega Man-style action platformer through a factory stage with a boss.
+
+- **Touch:** ◄ ► move · ▲ jump (tap height-variable) · ● fire — *hold ●*
+  to charge a stronger Mega shot. **Desktop:** ←/→ move, ↑/Space jump,
+  J/X fire.
+- Dodge spikes (instant death), pits, turrets and hard-hat enemies;
+  checkpoints respawn you on death (3 lives).
+- Survive to the arena and drain **Bolt Man's** health bar to win.
 
 Enjoy the arcade!
