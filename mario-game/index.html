@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="theme-color" content="#5c94fc" />
+<meta name="description" content="A Mario-style one-tap auto-runner playable on iPhone, built for the web." />
+<title>Super Run — Mario-style Platformer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%235c94fc'/%3E%3Crect x='9' y='6' width='14' height='5' fill='%23e52521'/%3E%3Crect x='11' y='11' width='10' height='7' fill='%23ffcc99'/%3E%3Crect x='9' y='18' width='14' height='8' fill='%231f6fd6'/%3E%3C/svg%3E" />
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%235c94fc'/%3E%3Crect x='9' y='6' width='14' height='5' fill='%23e52521'/%3E%3Crect x='11' y='11' width='10' height='7' fill='%23ffcc99'/%3E%3Crect x='9' y='18' width='14' height='8' fill='%231f6fd6'/%3E%3C/svg%3E" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="game-wrap">
+  <canvas id="game"></canvas>
+
+  <div id="hud" aria-hidden="true"></div>
+
+  <div id="overlay" class="overlay">
+    <div class="panel">
+      <h1>SUPER RUN</h1>
+      <p class="sub">A one-tap auto-runner</p>
+      <p class="hint">Mario runs by himself.<br/>Tap anywhere to jump.</p>
+      <button id="start-btn" class="big-btn" type="button">TAP TO PLAY</button>
+      <p class="controls-note">iPhone: tap anywhere on the screen to jump.<br/>Desktop: click or press Space / Up / W to jump.</p>
+    </div>
+  </div>
+
+  <div id="tap-hint" aria-hidden="true">TAP&nbsp;TO&nbsp;JUMP</div>
+</div>
+<script src="game.js"></script>
+</body>
+</html>
