@@ -817,39 +817,73 @@ function renderBuildTab(){
     }
   }
   BUILD_ORDER.forEach(([title,keys])=>{
-    h+=`<div class="sec-title">${title}</div>`;
+    h+=`<div class="sec-title">${title}</div><div class="bpalette">`;
     keys.forEach(k=>{
       const d=BUILDINGS[k];
       const locked=d.tier>S.tierUnlocked;
       const cant=!locked && !canAfford(d.cost);
-      const cl=["bcard"]; if(UI.selected===k)cl.push("sel");
+      const cl=["btile"]; if(UI.selected===k)cl.push("sel");
       if(locked)cl.push("locked"); else if(cant)cl.push("cant");
-      h+=`<button class="${cl.join(' ')}" data-build="${k}" ${locked?'disabled':''}>
-        <div class="bcard-h"><span class="ms">${d.icon}</span><b>${d.name}</b>
-          <span class="pill">${locked?'Tier '+d.tier:'T'+d.tier}</span></div>
-        ${ioLine(d.cost,"cost")}
-        ${ioLine(d.consume,"cons")}
-        ${ioLine(d.produce,"prod")}
+      h+=`<button class="${cl.join(' ')}" data-build="${k}" ${locked?'data-locked="1"':''}
+            title="${d.name}">
+        <span class="pill">T${d.tier}</span>
+        <span class="ms">${d.icon}</span>
+        <small>${d.name}</small>
       </button>`;
     });
+    h+=`</div>`;
   });
   return h;
+}
+function renderBuildDetail(type){
+  const d=BUILDINGS[type];
+  const locked=d.tier>S.tierUnlocked;
+  const cant=!locked && !canAfford(d.cost);
+  let h=`<div class="dtl">
+    <button class="back" data-act="back"><span class="ms">arrow_back</span>Bâtiments</button>
+    <h3><span class="ms">${d.icon}</span>${d.name}<span class="pill">Tier ${d.tier}</span></h3>
+    <p class="desc">${d.desc}</p>`;
+  if(locked){
+    h+=`<div class="build-cta warn"><span class="ms">lock</span>
+      <span>Verrouillé — débloquez le Tier ${d.tier} en construisant ${
+      d.tier===2?"le <b>Centre-ville</b>":"le <b>Hub industriel</b>"}.</span></div>`;
+  } else if(cant){
+    h+=`<div class="build-cta warn"><span class="ms">error</span>
+      <span>Ressources insuffisantes — il manque les ressources en <b>rouge</b> ci-dessous.</span></div>`;
+  } else {
+    h+=`<div class="build-cta"><span class="ms">touch_app</span>
+      <span>Touchez une case <b>en surbrillance</b> sur la grille pour construire.
+      Survolez/maintenez une case pour prévisualiser les bonus de voisinage.</span></div>`;
+  }
+  h+=ioLine(d.cost,"cost")+ioLine(d.consume,"cons")+ioLine(d.produce,"prod");
+  const rules=ADJACENCY[type]||[];
+  if(rules.length){
+    h+=`<div class="sec-title">Voisinage possible</div><div class="adj-list">`;
+    rules.forEach(rl=>{
+      const who=rl.tgt==="nb"?" → voisin":"";
+      const txt=rl.cons?`-${rl.pct}% conso ${rname(rl.res)}`
+        :`${rl.pct>0?'+':''}${rl.pct}% ${rname(rl.res)}${who}`;
+      h+=`<div class="off">○ proche ${BUILDINGS[rl.near].name} : ${txt}</div>`;
+    });
+    h+=`</div>`;
+  }
+  const chs=CHAINS.filter(c=>c.mid===type||c.a===type||c.c===type);
+  if(chs.length){
+    h+=`<div class="sec-title">Chaînes</div><div class="adj-list">`;
+    chs.forEach(c=>h+=`<div class="off">○ ${c.name} : ${BUILDINGS[c.a].name} – ${
+      BUILDINGS[c.mid].name} – ${BUILDINGS[c.c].name} → +${c.pct}% ${rname(c.res)}</div>`);
+    h+=`</div>`;
+  }
+  return h+`</div>`;
 }
 function renderInfoTab(){
   if(UI.inspect){
     const b=S.buildings.find(x=>x.id===UI.inspect);
     if(b) return renderInspect(b);
   }
-  if(UI.selected){
-    const d=BUILDINGS[UI.selected];
-    return `<div class="dtl"><h3><span class="ms">${d.icon}</span>${d.name}</h3>
-      <p class="desc">${d.desc}</p>
-      ${ioLine(d.cost,"cost")}${ioLine(d.consume,"cons")}${ioLine(d.produce,"prod")}
-      <p class="empty-note">Cliquez une case <b>en surbrillance</b> pour construire.<br>
-      Survolez une case pour prévisualiser les bonus de voisinage.</p></div>`;
-  }
+  if(UI.selected) return renderBuildDetail(UI.selected);
   return `<p class="empty-note"><span class="ms" style="font-size:34px;color:var(--dim)">touch_app</span><br>
-    Sélectionnez un bâtiment à construire,<br>ou cliquez un bâtiment posé pour l'inspecter.</p>`;
+    Touchez un bâtiment dans <b>Construire</b>,<br>ou un bâtiment posé pour l'inspecter.</p>`;
 }
 function renderInspect(b){
   const d=BUILDINGS[b.type];
@@ -1024,8 +1058,11 @@ function bind(){
     const cell=e.target.closest(".cell"); if(!cell) return;
     const [r,c]=cell.dataset.c.split(",").map(Number);
     const b=at(r,c);
-    if(b){ UI.inspect=b.id; UI.tab="info"; render(); }
-    else if(UI.selected){ placeBuilding(UI.selected,r,c); }
+    if(b){ UI.inspect=b.id; UI.selected=null; UI.tab="info"; render(); }
+    else if(UI.selected){
+      placeBuilding(UI.selected,r,c);
+      if(at(r,c)){ UI.tab="build"; renderPanel(); }   // posé : retour à la palette
+    }
   });
   $("#grid").addEventListener("mousemove",e=>{
     const cell=e.target.closest(".cell"); const k=cell?cell.dataset.c:null;
@@ -1037,10 +1074,19 @@ function bind(){
 
   $("#panelBody").addEventListener("click",e=>{
     const bc=e.target.closest("[data-build]");
-    if(bc && !bc.disabled){
-      UI.selected = UI.selected===bc.dataset.build ? null : bc.dataset.build;
-      UI.inspect=null; render(); return;
+    if(bc){
+      if(bc.dataset.locked){
+        const d=BUILDINGS[bc.dataset.build];
+        toast(`Verrouillé — construisez ${d.tier===2?"le Centre-ville":"le Hub industriel"}`,true);
+        return;
+      }
+      const k=bc.dataset.build;
+      UI.selected = UI.selected===k ? null : k;
+      UI.inspect=null;
+      UI.tab = UI.selected ? "info" : "build";
+      render(); return;
     }
+    if(e.target.closest('[data-act="back"]')){ UI.tab="build"; render(); return; }
     const sp=e.target.closest("[data-spec]");
     if(sp){ chooseSpec(sp.dataset.spec); return; }
     if(e.target.closest("#pauseBtn")){
