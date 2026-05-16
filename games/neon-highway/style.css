@@ -392,6 +392,50 @@ html, body {
   100% { transform: scale(1.05); opacity: 0; }
 }
 
+/* Fork chooser banner (live LEFT / RIGHT destinations) */
+#fork-ui {
+  position: absolute;
+  top: calc(8px + env(safe-area-inset-top));
+  left: 0; right: 0;
+  z-index: 37;
+  pointer-events: none;
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.18s;
+}
+#fork-ui.show { opacity: 1; }
+.fork-title {
+  font-family: "Arial Black", "Arial Bold", Gadget, sans-serif;
+  letter-spacing: 2px;
+  font-size: clamp(12px, 3vw, 20px);
+  color: #ffd24a;
+  text-shadow: 0 0 10px #ff7e3d, 0 0 22px #ff2e88;
+  margin-bottom: 6px;
+}
+.fork-row {
+  display: flex;
+  justify-content: center;
+  gap: clamp(16px, 8vw, 80px);
+}
+.fork-side {
+  font-family: "Arial Black", "Arial Bold", Gadget, sans-serif;
+  font-size: clamp(13px, 3.4vw, 22px);
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.55);
+  background: rgba(20, 2, 40, 0.5);
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  padding: 6px 14px;
+  transition: color .12s, border-color .12s, box-shadow .12s, transform .12s;
+}
+.fork-side.on {
+  color: #fff;
+  border-color: #19f0ff;
+  box-shadow: 0 0 16px rgba(25, 240, 255, 0.7);
+  transform: scale(1.06);
+  text-shadow: 0 0 10px #19f0ff;
+}
+
 /* ============================================================
    Touch controls
    ============================================================ */

@@ -120,6 +120,9 @@
   const STAGES = 5;              // Outrun-style: 5 stages, 15 nodes, 5 goals
   const FADE_SEGS = 26;          // segments over which a new biome cross-fades
   const LOCK_AHEAD = 110;        // segments before a node end the branch locks
+  const FORK_LEN = 150;          // length of the visible road-split (fork) zone
+  const MED_MAX = 0.62;          // fork median half-width (fraction of road half-width)
+  const MED_RAMP = 34;           // segments for the median to open / close
 
   // global sprite scale (tuned so the player car reads well)
   const SPRITE_SCALE = 0.3 * (1 / 300);
@@ -729,6 +732,7 @@
         p2: { world: { x: 0, y: y, z: (n + 1) * SEG_LEN }, camera: {}, screen: {} },
         dark: Math.floor(n / RUMBLE_LEN) % 2 === 1,
         theme: themeKey, fadeFrom: fadeFrom, fade: fade,
+        medW: 0,
         sprites: [], cars: [], clip: 0, fog: 0
       });
     }
@@ -797,22 +801,44 @@
         const ff = (this.segments.length - fadeBaseIdx) < FADE_SEGS ? fadeFromTheme : null;
         this._addRoad(enter, hold, leave, curve, hill, theme, ff, fadeBaseIdx);
       }
-      // straighten the last stretch so the checkpoint/fork reads clearly
-      this._addRoad(30, 60, 30, 0, 0, theme, null, fadeBaseIdx);
+      const isFinal = stage >= STAGES;
+      // straight run-out: a long, dead-straight ZONE for the visible
+      // road-split fork (non-final), or a plain finish straight (final)
+      if (isFinal) this._addRoad(30, 70, 30, 0, 0, theme, null, fadeBaseIdx);
+      else this._addRoad(26, FORK_LEN + 14, 26, 0, 0, theme, null, fadeBaseIdx);
       while (this.segments.length % RUMBLE_LEN !== 0)
         this._push(0, this.segments[this.segments.length - 1].p2.world.y, theme, null, 1);
 
       const endSeg = this.segments.length - 1;
+      const forkStartSeg = isFinal ? null
+        : Math.max(startSeg, endSeg - FORK_LEN);
       const node = {
         stage, index, theme,
         name: THEMES[theme].name,
         goal: def.goal || null,
-        startSeg, endSeg,
-        lockSeg: Math.max(startSeg, endSeg - LOCK_AHEAD),
+        startSeg, endSeg, forkStartSeg,
+        // lock just before the node ends, while the split is wide open
+        lockSeg: isFinal ? Math.max(startSeg, endSeg - LOCK_AHEAD)
+                         : Math.max(forkStartSeg + 4, endSeg - 22),
         committed: false
       };
       this.nodes.push(node);
       this.trackLength = this.segments.length * SEG_LEN;
+
+      // open the central median through the fork zone (the road
+      // visibly splits into a LEFT and a RIGHT ribbon)
+      if (!isFinal) {
+        for (let i = forkStartSeg; i <= endSeg; i++)
+          this.segments[i].medW = MED_MAX * Math.min(1, (i - forkStartSeg) / MED_RAMP);
+      }
+      // a node that was forked into closes the previous split: the two
+      // ribbons merge back to one as the new biome begins
+      if (fadeFromTheme) {
+        for (let i = startSeg; i < startSeg + MED_RAMP && i <= endSeg; i++)
+          this.segments[i].medW = Math.max(this.segments[i].medW,
+            MED_MAX * (1 - (i - startSeg) / MED_RAMP));
+      }
+
       this._decorate(node);
       return node;
     }
@@ -822,7 +848,9 @@
       const th = THEMES[node.theme];
       const bb = ["bbDiner", "bbMotel", "bbGas", "bbVegas", "bbCoast"];
       let bbi = (node.stage * 3 + node.index) % bb.length;
-      for (let i = node.startSeg + 6; i <= node.endSeg; i++) {
+      // keep roadside scenery out of the fork zone so the split reads clean
+      const decorEnd = node.forkStartSeg != null ? node.forkStartSeg - 4 : node.endSeg;
+      for (let i = node.startSeg + 6; i <= decorEnd; i++) {
         if (i % 16 === 0) {
           const k = th.decor[((i / 16) | 0) % th.decor.length];
           if (k) segs[i].sprites.push({ key: k === "billboard" ? bb[bbi++ % bb.length] : k, offset: -1.35 });
@@ -832,13 +860,12 @@
           if (k) segs[i].sprites.push({ key: k === "billboard" ? bb[bbi++ % bb.length] : k, offset: 1.35 });
         }
       }
-      // route signs on the approach to a fork (not on the final goal node)
-      if (node.stage < STAGES) {
-        const aprStart = Math.max(node.startSeg + 4, node.lockSeg - 130);
-        for (let s = aprStart; s < node.lockSeg; s += 22) {
+      // route signs lining the visible fork (not on the final goal node)
+      if (node.stage < STAGES && node.forkStartSeg != null) {
+        for (let s = node.forkStartSeg; s < node.lockSeg; s += 14) {
           if (segs[s]) {
-            segs[s].sprites.push({ key: "signL", offset: -2.05 });
-            segs[s].sprites.push({ key: "signR", offset: 2.05 });
+            segs[s].sprites.push({ key: "signL", offset: -2.15 });
+            segs[s].sprites.push({ key: "signR", offset: 2.15 });
           }
         }
       } else {
@@ -919,6 +946,7 @@
         finTitle: $("fin-title"), finDest: $("fin-dest"),
         finScore: $("fin-score"), finBest: $("fin-best"),
         finNewBest: $("fin-newbest"), finMap: $("fin-map"),
+        forkUI: $("fork-ui"), forkL: $("fork-left"), forkR: $("fork-right"),
         boostBtn: $("pedal-boost"), btnMute: $("btn-mute")
       };
     }
@@ -1002,6 +1030,7 @@
       [D.sTitle, D.sLoad, D.sCount, D.sPause, D.sOver, D.sFinish].forEach(e => e && e.classList.add("hide"));
       D.hud.classList.add("hide");
       D.controls.classList.add("hide");
+      if (D.forkUI) D.forkUI.classList.remove("show");
       if (s === "loading") D.sLoad.classList.remove("hide");
       if (s === "title") { D.sTitle.classList.remove("hide"); this._updateBestUI(); }
       if (s === "countdown") D.sCount.classList.remove("hide");
@@ -1041,10 +1070,15 @@
 
     _spawnTraffic(node) {
       const palette = ["car0", "car1", "car2", "car3"];
-      const span = node.endSeg - node.startSeg;
-      const n = Math.max(5, Math.floor(span * (0.05 + node.stage * 0.006)));
+      // cars only on the racing stretch, never inside the fork split
+      const lo = node.startSeg + 30;
+      const hi = (node.forkStartSeg != null ? node.forkStartSeg : node.endSeg) - 8;
+      if (hi <= lo) return;
+      // light arcade traffic: roughly one car every ~70 segments,
+      // a touch denser per stage, hard-capped so it never swarms
+      const n = Util.clamp(Math.round((hi - lo) * 0.014) + node.stage, 4, 15);
       for (let i = 0; i < n; i++) {
-        const seg = Util.randInt(node.startSeg + 30, Math.max(node.startSeg + 31, node.endSeg - 6));
+        const seg = Util.randInt(lo, hi);
         const sp = AssetFactory.sprites[Util.randChoice(palette)];
         const car = {
           offset: (Math.random() * 1.6 - 0.8),
@@ -1176,6 +1210,24 @@
         ${lines}${dots}</svg>`;
     }
 
+    // live LEFT / RIGHT destination banner while inside a fork split
+    _updateForkUI(node, playerSegIdx) {
+      const D = this.dom;
+      if (!D.forkUI) return;
+      const inFork = node.stage < STAGES && node.forkStartSeg != null &&
+        !node.committed && playerSegIdx >= node.forkStartSeg - 8;
+      if (!inFork) { D.forkUI.classList.remove("show"); return; }
+      const nk = (i) => ROUTE[(node.stage + 1) + "-" + i];
+      const lName = THEMES[nk(node.index).theme].name;
+      const rName = THEMES[nk(node.index + 1).theme].name;
+      D.forkL.textContent = "◀ " + lName;
+      D.forkR.textContent = rName + " ▶";
+      const right = this.playerX >= 0;
+      D.forkL.classList.toggle("on", !right);
+      D.forkR.classList.toggle("on", right);
+      D.forkUI.classList.add("show");
+    }
+
     _flash(msg, color) {
       const f = this.dom.flash;
       f.textContent = msg;
@@ -1237,7 +1289,10 @@
       else if (this.input.gas) this.speed = Util.accel(this.speed, ACCEL, dt);
       else if (this.input.brake) this.speed = Util.accel(this.speed, BRAKING, dt);
       else this.speed = Util.accel(this.speed, DECEL, dt);
-      if ((this.playerX < -1 || this.playerX > 1) && this.speed > OFFROAD_LIMIT)
+      const onMedian = playerSeg.medW > 0.04 &&
+        Math.abs(this.playerX) < playerSeg.medW;
+      if (((this.playerX < -1 || this.playerX > 1) || onMedian) &&
+          this.speed > OFFROAD_LIMIT)
         this.speed = Util.accel(this.speed, OFFROAD_DECEL, dt);
       this.playerX = Util.clamp(this.playerX, -2.2, 2.2);
       this.speed = Util.clamp(this.speed, 0, curMax);
@@ -1258,6 +1313,8 @@
         this.audio.sfx("fork");
         this._flash("CHOOSE YOUR ROUTE", "#ffd24a");
       }
+
+      this._updateForkUI(node, playerSegIdx);
 
       // lock the branch from the player's side, build the next node
       if (!node.committed && playerSegIdx >= node.lockSeg) {
@@ -1602,7 +1659,17 @@
       this._poly(p1.x - p1.w, p1.y, p1.x + p1.w, p1.y,
                  p2.x + p2.w, p2.y, p2.x - p2.w, p2.y, roadC);
 
-      if (!seg.dark) {
+      // central grass median: the road visibly splits into two ribbons
+      if (seg.medW > 0) {
+        const m1 = p1.w * seg.medW, m2 = p2.w * seg.medW;
+        const e1 = Math.max(1, p1.w * 0.04), e2 = Math.max(1, p2.w * 0.04);
+        this._poly(p1.x - m1 - e1, p1.y, p1.x - m1, p1.y,
+                   p2.x - m2, p2.y, p2.x - m2 - e2, p2.y, rumble);
+        this._poly(p1.x + m1, p1.y, p1.x + m1 + e1, p1.y,
+                   p2.x + m2 + e2, p2.y, p2.x + m2, p2.y, rumble);
+        this._poly(p1.x - m1, p1.y, p1.x + m1, p1.y,
+                   p2.x + m2, p2.y, p2.x - m2, p2.y, grass);
+      } else if (!seg.dark) {
         for (let k = 1; k < LANES; k++) {
           const lx1 = p1.x - p1.w + 2 * p1.w * (k / LANES);
           const lx2 = p2.x - p2.w + 2 * p2.w * (k / LANES);
