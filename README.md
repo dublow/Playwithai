@@ -103,8 +103,9 @@ A Zelda-style top-down action adventure across a 6-room overworld.
 
 A Mega Man-style action platformer through a factory stage with a boss.
 
-- **Touch:** ◄ ► move · ▲ jump (tap height-variable) · ● fire — *hold ●*
-  to charge a stronger Mega shot. **Desktop:** ←/→ move, ↑/Space jump,
+- **Touch:** left joystick to move · **A** jump (tap height-variable) ·
+  **B** fire — *hold B* to charge a stronger Mega shot.
+  **Desktop:** ←/→ move, ↑/Space jump,
   J/X fire.
 - Dodge spikes (instant death), pits, turrets and hard-hat enemies;
   checkpoints respawn you on death (3 lives).
@@ -114,8 +115,8 @@ A Mega Man-style action platformer through a factory stage with a boss.
 
 A Micro Machines-style **top-down toy racer** on one twisty circuit.
 
-- **Touch:** ◄ ► steer · **GAS** · **BRAKE** (brake to a stop also reverses).
-  **Desktop:** ←/→ steer, ↑/W gas, ↓/S brake.
+- **Touch:** left joystick to steer · **A** gas · **B** brake (brake to a
+  stop also reverses). **Desktop:** ←/→ steer, ↑/W gas, ↓/S brake.
 - Race **3 laps** against **3 AI rivals** — stay on the tarmac (grass kills
   your speed), clip the apexes and bump cleanly.
 - Live **lap counter, position and a minimap**; finish first across the
@@ -125,8 +126,9 @@ A Micro Machines-style **top-down toy racer** on one twisty circuit.
 
 A Faxanadu-style **action RPG platformer** up the poisoned world tree.
 
-- **Touch:** ◄ ► move · ▲ jump · 🗡 sword · ✦ magic bolt (costs MP).
-  **Desktop:** ←/→ move, ↑/Space jump, J attack, K magic.
+- **Touch:** left joystick to move (push **↑** = ✦ magic bolt, costs MP) ·
+  **A** jump · **B** 🗡 sword. **Desktop:** ←/→ move, ↑/Space jump,
+  J attack, K magic.
 - Slay bugs, bats and knights for **gold**; banked gold raises your
   **title** (Pilgrim → Aleph → … → He), boosting max HP.
 - Visit the **Eolis shop** to buy potions, elixirs, sword/armour upgrades
