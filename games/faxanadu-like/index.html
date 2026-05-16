@@ -54,7 +54,7 @@
   <p>The poison creeps up the great tree. Take the elf's blade, earn your
      <b>titles</b>, buy the <b>Mantra Key</b> from the shop, and slay the
      <b>Evil One</b> at the root of all worlds.</p>
-  <p class="keys">📱 Touch: ◄ ► move · ▲ jump · 🗡 attack · ✦ magic<br>
+  <p class="keys">📱 Touch: left joystick = move · A = jump · B = attack · C = magic<br>
      ⌨️ Desktop: ←/→ move · ↑/Space jump · J attack · K magic</p>
   <button id="startBtn">▶ Begin Quest</button>
 </div>
@@ -192,47 +192,56 @@ function resize(){
 addEventListener("resize",resize);
 
 // ---------- Input ----------
-const key={}, touch={left:0,right:0,jump:0,atk:0,mag:0};
+const key={};
 const IN={left:0,right:0,jump:0,atk:0,mag:0};
 addEventListener("keydown",e=>{ const k=e.key.toLowerCase(); key[k]=true;
   if(["arrowleft","arrowright","arrowup","arrowdown"," "].includes(k)) e.preventDefault(); });
 addEventListener("keyup",e=>{ key[e.key.toLowerCase()]=false; });
 function pollInput(){
-  IN.left =(key["arrowleft"] ||key["a"]||touch.left )?1:0;
-  IN.right=(key["arrowright"]||key["d"]||touch.right)?1:0;
-  IN.jump =(key["arrowup"]   ||key["w"]||key[" "]||touch.jump)?1:0;
-  IN.atk  =(key["j"]||key["x"]||touch.atk)?1:0;
-  IN.mag  =(key["k"]||key["l"]||touch.mag)?1:0;
+  const ax=stickAxis()[0];
+  IN.left =(key["arrowleft"] ||key["a"]|| ax<-0.35)?1:0;
+  IN.right=(key["arrowright"]||key["d"]|| ax> 0.35)?1:0;
+  IN.jump =(key["arrowup"]   ||key["w"]||key[" "]||BTN.A.on)?1:0;
+  IN.atk  =(key["j"]||key["x"]||BTN.B.on)?1:0;
+  IN.mag  =(key["k"]||key["l"]||BTN.C.on)?1:0;
 }
-let pads={};
+// Touch control: floating joystick (left) + lettered buttons (right)
+let stick=null, STK_R=60;
+const BTN={C:{x:0,y:0,r:0,id:null,on:0,lbl:"C"},
+           B:{x:0,y:0,r:0,id:null,on:0,lbl:"B"},
+           A:{x:0,y:0,r:0,id:null,on:0,lbl:"A"}};
 function layoutPads(){
-  const r=Math.max(32,Math.min(52,SCR_W*0.068));
-  const by=SCR_H-r-Math.max(20,SCR_H*0.05);
-  pads={
-    left :{x:r+20,            y:by,        r,        k:"left", lbl:"◄"},
-    right:{x:r*3+42,          y:by,        r,        k:"right",lbl:"►"},
-    jump :{x:r+20,            y:by-r*2-14, r,        k:"jump", lbl:"▲"},
-    atk  :{x:SCR_W-r-20,      y:by,        r:r*1.15, k:"atk",  lbl:"🗡"},
-    mag  :{x:SCR_W-r*3-46,    y:by,        r,        k:"mag",  lbl:"✦"},
-  };
+  const S=SCR_W,T=SCR_H, r=Math.max(38,Math.min(58,S*0.075));
+  const by=T-Math.max(26,T*0.06);
+  BTN.A.r=r*1.2; BTN.A.x=S-BTN.A.r-26; BTN.A.y=by-BTN.A.r;
+  if(BTN.B){ BTN.B.r=r; BTN.B.x=BTN.A.x-BTN.A.r-BTN.B.r-18; BTN.B.y=by-BTN.B.r-4; }
+  if(BTN.C){ BTN.C.r=r; BTN.C.x=BTN.B.x-BTN.B.r-BTN.C.r-18; BTN.C.y=BTN.B.y; }
+  STK_R=Math.max(48,Math.min(88,S*0.11));
 }
-const tmap={};
-function hitPad(px,py){ for(const k in pads){ const p=pads[k];
-  if((px-p.x)**2+(py-p.y)**2 < (p.r*1.3)**2) return p.k; } return null; }
 function ptPos(e){ const b=cv.getBoundingClientRect(); return [e.clientX-b.left,e.clientY-b.top]; }
+function hitBtn(x,y){ for(const k in BTN){ const b=BTN[k];
+  if((x-b.x)**2+(y-b.y)**2 < (b.r*1.3)**2) return k; } return null; }
+function stickAxis(){
+  if(!stick) return [0,0];
+  const dx=stick.dx, dy=stick.dy, d=Math.hypot(dx,dy);
+  if(d<STK_R*0.30) return [0,0];
+  const c=Math.min(1,d/STK_R); return [dx/d*c, dy/d*c];
+}
 cv.addEventListener("pointerdown",e=>{
   cv.setPointerCapture(e.pointerId);
   if(state!=="play"&&state!=="boss") return;
-  const [x,y]=ptPos(e), k=hitPad(x,y);
-  if(k){ tmap[e.pointerId]=k; touch[k]=1; }
+  const [x,y]=ptPos(e), k=hitBtn(x,y);
+  if(k){ BTN[k].id=e.pointerId; BTN[k].on=1; return; }
+  if(!stick && x<SCR_W*0.6) stick={id:e.pointerId,ox:x,oy:y,dx:0,dy:0};
 },{passive:false});
 cv.addEventListener("pointermove",e=>{
-  if(!(e.pointerId in tmap)) return;
-  const [x,y]=ptPos(e), nk=hitPad(x,y), ok=tmap[e.pointerId];
-  if(nk!==ok){ if(ok)touch[ok]=0; tmap[e.pointerId]=nk; if(nk)touch[nk]=1; }
+  if(stick && e.pointerId===stick.id){ const [x,y]=ptPos(e);
+    stick.dx=x-stick.ox; stick.dy=y-stick.oy; }
 },{passive:false});
-function endPtr(e){ const k=tmap[e.pointerId];
-  if(k!==undefined){ if(k)touch[k]=0; delete tmap[e.pointerId]; } }
+function endPtr(e){
+  if(stick && e.pointerId===stick.id) stick=null;
+  for(const k in BTN) if(BTN[k].id===e.pointerId){ BTN[k].id=null; BTN[k].on=0; }
+}
 cv.addEventListener("pointerup",endPtr);
 cv.addEventListener("pointercancel",endPtr);
 
@@ -635,20 +644,28 @@ function drawHUD(){
   }
   ctx.restore();
 }
-function pbtn(p,on){
-  ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,6.28);
-  ctx.fillStyle=on?"rgba(122,208,127,.45)":"rgba(150,130,90,.16)"; ctx.fill();
-  ctx.lineWidth=3; ctx.strokeStyle="rgba(220,200,150,.5)"; ctx.stroke();
-  ctx.fillStyle="rgba(240,230,207,.92)";
-  ctx.font="bold "+Math.floor(p.r*0.8)+"px system-ui";
+function pbtn(b){
+  ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,6.2832);
+  ctx.fillStyle=b.on?"rgba(255,255,255,.42)":"rgba(255,255,255,.12)"; ctx.fill();
+  ctx.lineWidth=3; ctx.strokeStyle="rgba(255,255,255,.5)"; ctx.stroke();
+  ctx.fillStyle="rgba(255,255,255,.95)";
+  ctx.font="bold "+Math.floor(b.r*0.78)+"px system-ui";
   ctx.textAlign="center"; ctx.textBaseline="middle";
-  ctx.fillText(p.lbl,p.x,p.y+1); ctx.textAlign="left";
+  ctx.fillText(b.lbl,b.x,b.y+1); ctx.textAlign="left";
 }
-function drawPads(){
-  pbtn(pads.left,touch.left); pbtn(pads.right,touch.right);
-  pbtn(pads.jump,touch.jump); pbtn(pads.atk,touch.atk);
-  pbtn(pads.mag,touch.mag);
+function drawStick(){
+  let ox,oy,dx=0,dy=0;
+  if(stick){ ox=stick.ox; oy=stick.oy; dx=stick.dx; dy=stick.dy;
+    const d=Math.hypot(dx,dy); if(d>STK_R){ dx=dx/d*STK_R; dy=dy/d*STK_R; } }
+  else { ox=Math.max(STK_R+24,SCR_W*0.14);
+    oy=SCR_H-Math.max(STK_R+24,SCR_H*0.17); ctx.globalAlpha=0.5; }
+  ctx.lineWidth=3; ctx.strokeStyle="rgba(255,255,255,.30)";
+  ctx.beginPath(); ctx.arc(ox,oy,STK_R,0,6.2832); ctx.stroke();
+  ctx.fillStyle="rgba(255,255,255,.55)";
+  ctx.beginPath(); ctx.arc(ox+dx,oy+dy,STK_R*0.42,0,6.2832); ctx.fill();
+  ctx.globalAlpha=1;
 }
+function drawPads(){ drawStick(); if(BTN.C)pbtn(BTN.C); if(BTN.B)pbtn(BTN.B); pbtn(BTN.A); }
 
 // ---------- Overlays + loop ----------
 const elStart=document.getElementById("start"), elOver=document.getElementById("over");
