@@ -41,7 +41,7 @@
   <h1>MINI QUEST</h1>
   <p>Explore the woods, slash through bushes and monsters, find the lost
      <b>key</b>, and claim the <b>Triforce</b> hidden behind the locked door.</p>
-  <p class="keys">📱 Touch: left side = move stick · right side = sword<br>
+  <p class="keys">📱 Touch: left joystick = move · A = sword<br>
      ⌨️ Desktop: arrows / WASD to move · Space or J to attack</p>
   <button id="startBtn">▶ Begin Quest</button>
 </div>
@@ -170,35 +170,46 @@ addEventListener("keydown",e=>{
 });
 addEventListener("keyup",e=>{ keys[e.key.toLowerCase()]=false; });
 
-let stick=null;          // {id,ox,oy,dx,dy} active move joystick
-let atkBtn={x:0,y:0,r:48};
-function layoutBtn(){ atkBtn.r=Math.max(40,Math.min(64,VW*0.085));
-  atkBtn.x=VW-atkBtn.r-26; atkBtn.y=VH-atkBtn.r-30; }
-layoutBtn(); addEventListener("resize",layoutBtn);
-
+// Touch control: floating joystick (left) + lettered buttons (right)
+let stick=null, STK_R=60;
+const BTN={A:{x:0,y:0,r:0,id:null,on:0,lbl:"A"}};
+function layoutPads(){
+  const S=VW,T=VH, r=Math.max(38,Math.min(58,S*0.075));
+  const by=T-Math.max(26,T*0.06);
+  BTN.A.r=r*1.2; BTN.A.x=S-BTN.A.r-26; BTN.A.y=by-BTN.A.r;
+  if(BTN.B){ BTN.B.r=r; BTN.B.x=BTN.A.x-BTN.A.r-BTN.B.r-18; BTN.B.y=by-BTN.B.r-4; }
+  if(BTN.C){ BTN.C.r=r; BTN.C.x=BTN.B.x-BTN.B.r-BTN.C.r-18; BTN.C.y=BTN.B.y; }
+  STK_R=Math.max(48,Math.min(88,S*0.11));
+}
+layoutPads(); addEventListener("resize",layoutPads);
 function pos(e){const r=cv.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top};}
+function hitBtn(x,y){ for(const k in BTN){ const b=BTN[k];
+  if((x-b.x)**2+(y-b.y)**2 < (b.r*1.3)**2) return k; } return null; }
+function stickAxis(){
+  if(!stick) return [0,0];
+  const dx=stick.dx, dy=stick.dy, d=Math.hypot(dx,dy);
+  if(d<STK_R*0.30) return [0,0];
+  const c=Math.min(1,d/STK_R); return [dx/d*c, dy/d*c];
+}
 cv.addEventListener("pointerdown",e=>{
-  cv.setPointerCapture(e.pointerId); const p=pos(e);
+  cv.setPointerCapture(e.pointerId);
   if(state!=="play") return;
-  const onBtn=Math.hypot(p.x-atkBtn.x,p.y-atkBtn.y)<atkBtn.r*1.25;
-  if(onBtn || p.x>VW*0.55){ attack(); return; }
-  stick={id:e.pointerId,ox:p.x,oy:p.y,dx:0,dy:0};
+  const p=pos(e), k=hitBtn(p.x,p.y);
+  if(k){ BTN[k].id=e.pointerId; BTN[k].on=1; if(k==="A") attack(); return; }
+  if(!stick && p.x<VW*0.6) stick={id:e.pointerId,ox:p.x,oy:p.y,dx:0,dy:0};
 },{passive:false});
 cv.addEventListener("pointermove",e=>{
-  if(!stick||e.pointerId!==stick.id) return;
-  const p=pos(e); stick.dx=p.x-stick.ox; stick.dy=p.y-stick.oy;
+  if(stick && e.pointerId===stick.id){ const p=pos(e);
+    stick.dx=p.x-stick.ox; stick.dy=p.y-stick.oy; }
 },{passive:false});
-function endPtr(e){ if(stick&&e.pointerId===stick.id) stick=null; }
+function endPtr(e){
+  if(stick && e.pointerId===stick.id) stick=null;
+  for(const k in BTN) if(BTN[k].id===e.pointerId){ BTN[k].id=null; BTN[k].on=0; }
+}
 cv.addEventListener("pointerup",endPtr);
 cv.addEventListener("pointercancel",endPtr);
-
 function moveVec(){
-  let mx=0,my=0;
-  if(stick){
-    const R=Math.max(34,TS*1.1), dz=R*0.22;
-    let dx=stick.dx, dy=stick.dy, d=Math.hypot(dx,dy);
-    if(d>dz){ const c=Math.min(1,d/R); mx=dx/d*c; my=dy/d*c; }
-  }
+  let [mx,my]=stickAxis();
   if(keys["arrowleft"]||keys["a"]) mx=-1;
   if(keys["arrowright"]||keys["d"]) mx=1;
   if(keys["arrowup"]||keys["w"]) my=-1;
@@ -522,26 +533,28 @@ function gem(x,y){ ctx.beginPath(); ctx.moveTo(x,y-8); ctx.lineTo(x+7,y);
 function keyIconHUD(x,y){ ctx.beginPath(); ctx.arc(x,y,7,0,6.28); ctx.fill();
   ctx.fillRect(x,y-3,16,6); ctx.fillRect(x+12,y,4,7); }
 
-function drawControls(){
-  // attack button
-  ctx.fillStyle="rgba(255,216,74,.18)";
-  circle(atkBtn.x,atkBtn.y,atkBtn.r);
-  ctx.strokeStyle="rgba(255,216,74,.7)"; ctx.lineWidth=3;
-  ctx.beginPath(); ctx.arc(atkBtn.x,atkBtn.y,atkBtn.r,0,6.28); ctx.stroke();
-  ctx.fillStyle="#ffd84a"; ctx.font="bold "+(atkBtn.r*0.7)+"px system-ui";
-  ctx.textAlign="center"; ctx.textBaseline="middle";
-  ctx.fillText("⚔", atkBtn.x, atkBtn.y+2); ctx.textAlign="left";
-  // joystick
-  if(stick){
-    const R=Math.max(34,TS*1.1);
-    ctx.strokeStyle="rgba(255,255,255,.35)"; ctx.lineWidth=3;
-    ctx.beginPath(); ctx.arc(stick.ox,stick.oy,R,0,6.28); ctx.stroke();
-    let dx=stick.dx,dy=stick.dy,d=Math.hypot(dx,dy);
-    if(d>R){dx=dx/d*R;dy=dy/d*R;}
-    ctx.fillStyle="rgba(255,255,255,.5)";
-    circle(stick.ox+dx,stick.oy+dy,R*0.42);
-  }
+function drawBtn(b){
+  ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,6.2832);
+  ctx.fillStyle=b.on?"rgba(255,255,255,.42)":"rgba(255,255,255,.12)"; ctx.fill();
+  ctx.lineWidth=3; ctx.strokeStyle="rgba(255,255,255,.5)"; ctx.stroke();
+  ctx.fillStyle="rgba(255,255,255,.95)";
+  ctx.font="bold "+Math.floor(b.r*0.78)+"px system-ui";
+  ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(b.lbl,b.x,b.y+1);
+  ctx.textAlign="left";
 }
+function drawStick(){
+  let ox,oy,dx=0,dy=0;
+  if(stick){ ox=stick.ox; oy=stick.oy; dx=stick.dx; dy=stick.dy;
+    const d=Math.hypot(dx,dy); if(d>STK_R){ dx=dx/d*STK_R; dy=dy/d*STK_R; } }
+  else { ox=Math.max(STK_R+24,VW*0.14);
+    oy=VH-Math.max(STK_R+24,VH*0.17); ctx.globalAlpha=0.5; }
+  ctx.lineWidth=3; ctx.strokeStyle="rgba(255,255,255,.30)";
+  ctx.beginPath(); ctx.arc(ox,oy,STK_R,0,6.2832); ctx.stroke();
+  ctx.fillStyle="rgba(255,255,255,.55)";
+  ctx.beginPath(); ctx.arc(ox+dx,oy+dy,STK_R*0.42,0,6.2832); ctx.fill();
+  ctx.globalAlpha=1;
+}
+function drawControls(){ drawStick(); if(BTN.C)drawBtn(BTN.C); if(BTN.B)drawBtn(BTN.B); drawBtn(BTN.A); }
 
 // shape helpers
 function circle(x,y,r){ ctx.beginPath(); ctx.arc(x,y,r,0,6.2832); ctx.fill(); }

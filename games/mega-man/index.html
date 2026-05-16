@@ -157,17 +157,17 @@ function pollInput(){
   IN.jump =(key["arrowup"]   ||key["w"]||key[" "]||BTN.A.on)?1:0;
   IN.fire =(key["j"]||key["x"]||key["k"]||BTN.B.on)?1:0;
 }
-// Zelda-style controls: floating joystick (left) + A/B buttons (right)
+// Touch control: floating joystick (left) + lettered buttons (right)
 let stick=null, STK_R=60;
-const BTN={B:{x:0,y:0,r:0,id:null,on:0,lbl:"●"},
-           A:{x:0,y:0,r:0,id:null,on:0,lbl:"▲"}};
+const BTN={B:{x:0,y:0,r:0,id:null,on:0,lbl:"B"},
+           A:{x:0,y:0,r:0,id:null,on:0,lbl:"A"}};
 function layoutPads(){
-  const r=Math.max(36,Math.min(58,SCR_W*0.075));
-  const by=SCR_H-Math.max(26,SCR_H*0.06);
-  BTN.A.r=r*1.2; BTN.B.r=r;
-  BTN.A.x=SCR_W-BTN.A.r-26;            BTN.A.y=by-BTN.A.r;
-  BTN.B.x=BTN.A.x-BTN.A.r-BTN.B.r-18;  BTN.B.y=by-BTN.B.r-4;
-  STK_R=Math.max(48,Math.min(88,SCR_W*0.11));
+  const S=SCR_W,T=SCR_H, r=Math.max(38,Math.min(58,S*0.075));
+  const by=T-Math.max(26,T*0.06);
+  BTN.A.r=r*1.2; BTN.A.x=S-BTN.A.r-26; BTN.A.y=by-BTN.A.r;
+  if(BTN.B){ BTN.B.r=r; BTN.B.x=BTN.A.x-BTN.A.r-BTN.B.r-18; BTN.B.y=by-BTN.B.r-4; }
+  if(BTN.C){ BTN.C.r=r; BTN.C.x=BTN.B.x-BTN.B.r-BTN.C.r-18; BTN.C.y=BTN.B.y; }
+  STK_R=Math.max(48,Math.min(88,S*0.11));
 }
 function ptPos(e){ const b=cv.getBoundingClientRect(); return [e.clientX-b.left,e.clientY-b.top]; }
 function hitBtn(x,y){ for(const k in BTN){ const b=BTN[k];
@@ -527,10 +527,11 @@ function drawHUD(){
   ctx.restore();
 }
 function pbtn(b){
-  ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,6.28);
-  ctx.fillStyle=b.on?"rgba(54,198,255,.5)":"rgba(120,150,210,.16)"; ctx.fill();
-  ctx.lineWidth=3; ctx.strokeStyle="rgba(180,210,255,.55)"; ctx.stroke();
-  ctx.fillStyle="rgba(223,244,255,.92)"; ctx.font="bold "+Math.floor(b.r*0.9)+"px system-ui";
+  ctx.beginPath(); ctx.arc(b.x,b.y,b.r,0,6.2832);
+  ctx.fillStyle=b.on?"rgba(255,255,255,.42)":"rgba(255,255,255,.12)"; ctx.fill();
+  ctx.lineWidth=3; ctx.strokeStyle="rgba(255,255,255,.5)"; ctx.stroke();
+  ctx.fillStyle="rgba(255,255,255,.95)";
+  ctx.font="bold "+Math.floor(b.r*0.78)+"px system-ui";
   ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(b.lbl,b.x,b.y+1);
   ctx.textAlign="left";
 }
@@ -540,13 +541,13 @@ function drawStick(){
     const d=Math.hypot(dx,dy); if(d>STK_R){ dx=dx/d*STK_R; dy=dy/d*STK_R; } }
   else { ox=Math.max(STK_R+24,SCR_W*0.14);
     oy=SCR_H-Math.max(STK_R+24,SCR_H*0.17); ctx.globalAlpha=0.5; }
-  ctx.lineWidth=3; ctx.strokeStyle="rgba(200,225,255,.35)";
-  ctx.beginPath(); ctx.arc(ox,oy,STK_R,0,6.28); ctx.stroke();
-  ctx.fillStyle="rgba(200,225,255,.5)";
-  ctx.beginPath(); ctx.arc(ox+dx,oy+dy,STK_R*0.42,0,6.28); ctx.fill();
+  ctx.lineWidth=3; ctx.strokeStyle="rgba(255,255,255,.30)";
+  ctx.beginPath(); ctx.arc(ox,oy,STK_R,0,6.2832); ctx.stroke();
+  ctx.fillStyle="rgba(255,255,255,.55)";
+  ctx.beginPath(); ctx.arc(ox+dx,oy+dy,STK_R*0.42,0,6.2832); ctx.fill();
   ctx.globalAlpha=1;
 }
-function drawPads(){ drawStick(); pbtn(BTN.B); pbtn(BTN.A); }
+function drawPads(){ drawStick(); if(BTN.C)pbtn(BTN.C); if(BTN.B)pbtn(BTN.B); pbtn(BTN.A); }
 
 // ---------- Overlays + loop ----------
 const elStart=document.getElementById("start"), elOver=document.getElementById("over");

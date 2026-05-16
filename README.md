@@ -91,9 +91,8 @@ ending — 3 stages and a 3-phase final boss.
 
 A Zelda-style top-down action adventure across a 6-room overworld.
 
-- **Touch:** left side of the screen is a floating move stick, right side
-  swings the sword. **Desktop:** arrows / WASD to move, `Space` or `J` to
-  attack.
+- **Touch:** left joystick to move · **A** swings the sword.
+  **Desktop:** arrows / WASD to move, `Space` or `J` to attack.
 - Slash bushes and monsters (octoroks & bats) for rupees, mind the
   hearts — contact costs health, with brief invulnerability after a hit.
 - Find the hidden **key**, open the **locked door**, and grab the
@@ -126,8 +125,8 @@ A Micro Machines-style **top-down toy racer** on one twisty circuit.
 
 A Faxanadu-style **action RPG platformer** up the poisoned world tree.
 
-- **Touch:** left joystick to move (push **↑** = ✦ magic bolt, costs MP) ·
-  **A** jump · **B** 🗡 sword. **Desktop:** ←/→ move, ↑/Space jump,
+- **Touch:** left joystick to move · **A** jump · **B** sword · **C** ✦
+  magic bolt (costs MP). **Desktop:** ←/→ move, ↑/Space jump,
   J attack, K magic.
 - Slay bugs, bats and knights for **gold**; banked gold raises your
   **title** (Pilgrim → Aleph → … → He), boosting max HP.
