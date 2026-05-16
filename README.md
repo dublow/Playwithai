@@ -16,6 +16,7 @@ games/
   faxanadu-like/index.html       # 🌲 Worldtree     — Faxanadu-style action RPG
   temple-pinball/index.html      # 🏺 Temple Raiders — Indiana-style pinball
   royaume/index.html             # 🏰 Royaume       — medieval strategy / idle
+  grid-foundry/index.html        # 🏭 Grid Foundry  — industrial puzzle
 .github/workflows/deploy.yml     # builds the site → gh-pages branch
 ```
 
@@ -168,5 +169,21 @@ HTML/CSS/JS) in a dark fantasy theme.
 - A guided **objective system** always points to the next goal; reward
   toasts, an event log, **localStorage autosave**, reset, and **offline
   progression** (50% efficiency, capped at 8h).
+
+### 🏭 Grid Foundry — `games/grid-foundry/`
+
+A compact **strategic industrial puzzle** (vanilla HTML/CSS/JS) inspired by
+Factorio, Shapez, Slipways & Stacklands — no belts, no scrolling, one screen.
+
+- Build **production chains** on a tiny grid that expands **3×3 → 4×4 →
+  5×5**; every cell matters, so you destroy, replace and re-optimise.
+- Exploit orthogonal **neighbour bonuses**, **chain synergies** and
+  **Centre-ville / Hub** auras (capped), under shared-resource tension and
+  **decreasing returns** per extra building of a type.
+- Reach a **Centre-ville**, pick one of three **specializations** (Métal /
+  Bio / Énergie), then race a guided objective track to that axis's **final
+  technology**.
+- Anti-deadlock safeguards (manual harvest, pause, 50% refund, emergency
+  drop), **localStorage autosave** and limited **offline progression**.
 
 Enjoy the arcade!

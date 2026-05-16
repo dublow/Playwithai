@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0a0e14" />
+<meta name="description" content="GRID FOUNDRY — un puzzle industriel stratégique compact. Chaînes de production, bonus de voisinage, spécialisations, sur une grille limitée." />
+<title>GRID FOUNDRY — puzzle industriel</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%2300d3a7'/%3E%3Crect x='7' y='7' width='7' height='7' fill='%230a0e14'/%3E%3Crect x='18' y='7' width='7' height='7' fill='%230a0e14'/%3E%3Crect x='7' y='18' width='7' height='7' fill='%230a0e14'/%3E%3Crect x='18' y='18' width='7' height='7' fill='%230a0e14'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-25..0&family=Inter:wght@400;500;600;700&display=swap" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="app">
+
+  <header id="topbar">
+    <div class="brand">
+      <span class="ms logo">precision_manufacturing</span>
+      <div class="brand-txt">
+        <strong>GRID FOUNDRY</strong>
+        <span id="tierLabel">Tier 1 · Grille 3×3</span>
+      </div>
+    </div>
+
+    <div id="resourceBar" class="resbar" aria-label="Ressources"></div>
+
+    <div class="top-actions">
+      <button id="expandBtn" class="btn expand hidden"></button>
+      <button id="menuBtn" class="btn ghost icon" title="Menu / Sauvegarde">
+        <span class="ms">settings</span>
+      </button>
+    </div>
+  </header>
+
+  <main id="main">
+    <section id="gridZone">
+      <div id="objStrip" class="obj-strip"></div>
+      <div id="gridWrap">
+        <div id="grid" class="grid"></div>
+      </div>
+      <div id="harvest" class="harvest"></div>
+    </section>
+
+    <aside id="panel">
+      <nav id="tabs" class="tabs">
+        <button class="tab active" data-tab="build"><span class="ms">construction</span><span>Construire</span></button>
+        <button class="tab" data-tab="info"><span class="ms">info</span><span>Détails</span></button>
+        <button class="tab" data-tab="goals"><span class="ms">flag</span><span>Objectifs</span></button>
+        <button class="tab" data-tab="log"><span class="ms">terminal</span><span>Journal</span></button>
+      </nav>
+      <div id="panelBody" class="panel-body"></div>
+    </aside>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <div id="modal" class="modal hidden">
+    <div class="modal-card">
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+</div>
+<script src="script.js"></script>
+</body>
+</html>
