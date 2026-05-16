@@ -13,6 +13,7 @@ games/
   zelda-like/index.html          # ⚔️ Mini Quest    — Zelda-style adventure
   mega-man/index.html            # 🤖 Bolt Buster   — Mega Man-style platformer
   micro-racers/index.html        # 🏎️ Micro Racers  — Micro Machines-style racer
+  faxanadu-like/index.html       # 🌲 Worldtree     — Faxanadu-style action RPG
 .github/workflows/deploy.yml     # builds the site → gh-pages branch
 ```
 
@@ -119,5 +120,18 @@ A Micro Machines-style **top-down toy racer** on one twisty circuit.
   your speed), clip the apexes and bump cleanly.
 - Live **lap counter, position and a minimap**; finish first across the
   chequered line to take the trophy.
+
+### 🌲 Worldtree — `games/faxanadu-like/`
+
+A Faxanadu-style **action RPG platformer** up the poisoned world tree.
+
+- **Touch:** ◄ ► move · ▲ jump · 🗡 sword · ✦ magic bolt (costs MP).
+  **Desktop:** ←/→ move, ↑/Space jump, J attack, K magic.
+- Slay bugs, bats and knights for **gold**; banked gold raises your
+  **title** (Pilgrim → Aleph → … → He), boosting max HP.
+- Visit the **Eolis shop** to buy potions, elixirs, sword/armour upgrades
+  and the **Mantra Key**; the key shatters the sealed door.
+- 3 lives, checkpoints (death costs half your gold); reach the root and
+  defeat the **Evil One** to save the tree.
 
 Enjoy the arcade!

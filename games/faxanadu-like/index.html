@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#1a1206" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="description" content="Worldtree — a Faxanadu-style action RPG platformer, built for iPhone." />
+<title>Worldtree — Action RPG</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231a1206'/%3E%3Crect x='13' y='14' width='6' height='14' fill='%237a4a22'/%3E%3Ccircle cx='16' cy='10' r='9' fill='%233a8c44'/%3E%3C/svg%3E" />
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%231a1206'/%3E%3Crect x='13' y='14' width='6' height='14' fill='%237a4a22'/%3E%3Ccircle cx='16' cy='10' r='9' fill='%233a8c44'/%3E%3C/svg%3E" />
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;
+    -webkit-user-select:none;user-select:none;}
+  html,body{height:100%;overflow:hidden;background:#0a0803;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;}
+  #game{position:fixed;inset:0;display:block;touch-action:none;
+    image-rendering:pixelated;background:#0a0803;}
+  .ovl{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;text-align:center;color:#f0e6cf;padding:26px;z-index:20;
+    background:radial-gradient(120% 90% at 50% 30%,rgba(40,30,12,.96),rgba(8,6,2,.98));}
+  .ovl.hide{display:none;}
+  .ovl h1{font-size:32px;letter-spacing:3px;color:#7ad07f;
+    text-shadow:0 0 14px rgba(122,208,127,.6),0 3px 0 #235c2a;margin-bottom:6px;}
+  .ovl h2{font-size:24px;margin-bottom:10px;color:#ffd24a;}
+  .ovl p{color:#cdbfa0;max-width:380px;line-height:1.55;font-size:14px;margin-bottom:8px;}
+  .ovl .keys{font-size:12px;color:#9c8e6f;margin-top:4px;}
+  .ovl button{margin-top:14px;background:#7ad07f;color:#0c2e10;border:0;border-radius:12px;
+    padding:13px 28px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 0 #2f6b34;}
+  .ovl button:active{transform:translateY(3px);box-shadow:0 1px 0 #2f6b34;}
+  .tag{display:inline-block;background:rgba(122,208,127,.15);color:#7ad07f;font-size:12px;
+    font-weight:700;letter-spacing:.5px;padding:5px 12px;border-radius:999px;margin-bottom:14px;}
+  #shop{z-index:25;}
+  #shop .row{display:flex;flex-direction:column;gap:9px;width:100%;max-width:320px;margin-top:6px;}
+  #shop .item{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    background:rgba(60,46,20,.6);border:1px solid #5c4626;border-radius:10px;
+    padding:10px 13px;font-size:14px;color:#f0e6cf;}
+  #shop .item b{color:#ffd24a;}
+  #shop .item button{margin:0;padding:8px 14px;font-size:13px;border-radius:8px;
+    box-shadow:0 3px 0 #2f6b34;}
+  #shop .item button:disabled{background:#5a5a5a;color:#bbb;box-shadow:0 3px 0 #333;}
+  #shopGold{color:#ffd24a;font-weight:800;margin:8px 0 2px;}
+  #shop .close{background:#caa45a;box-shadow:0 4px 0 #7a5f24;color:#2a1e06;}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="start" class="ovl">
+  <span class="tag">🌲 ACTION RPG</span>
+  <h1>WORLDTREE</h1>
+  <p>The poison creeps up the great tree. Take the elf's blade, earn your
+     <b>titles</b>, buy the <b>Mantra Key</b> from the shop, and slay the
+     <b>Evil One</b> at the root of all worlds.</p>
+  <p class="keys">📱 Touch: ◄ ► move · ▲ jump · 🗡 attack · ✦ magic<br>
+     ⌨️ Desktop: ←/→ move · ↑/Space jump · J attack · K magic</p>
+  <button id="startBtn">▶ Begin Quest</button>
+</div>
+
+<div id="shop" class="ovl hide">
+  <span class="tag">🛖 ELF SHOP</span>
+  <h2>Trader of Eolis</h2>
+  <div id="shopGold">Gold: 0</div>
+  <div class="row" id="shopItems"></div>
+  <button class="close" id="shopClose">Leave Shop</button>
+</div>
+
+<div id="over" class="ovl hide">
+  <h2 id="overTitle">Game Over</h2>
+  <p id="overMsg"></p>
+  <button id="overBtn">↻ Retry</button>
+</div>
+
+<script>
+(()=>{
+"use strict";
+
+const cv=document.getElementById("game"), ctx=cv.getContext("2d");
+let SCR_W=0, SCR_H=0, DPR=1, SCALE=1, OX=0, OY=0;
+
+const GW=256, GH=224, TS=16, LH=14;
+const LEVEL_W=232;
+const BOSS_X=214;
+const ARENA_CAM=(LEVEL_W-16)*TS;
+const GRAV=0.6, RUN=1.95, JUMP=-9.0, MAXFALL=10;
+const BOSS_MAX=40;
+const clamp=(v,a,b)=> v<a?a : v>b?b : v;
+
+// ---------- World layout ----------
+// town floor + tree platforms; pits between segments
+const PITS=[[40,42],[78,80],[120,122],[166,168],[200,202]];
+const PLAT=[
+  {x:46,y:9,w:5},{x:55,y:7,w:4},{x:64,y:9,w:5},{x:72,y:6,w:3},
+  {x:84,y:9,w:4},{x:92,y:7,w:4},{x:100,y:8,w:3},{x:108,y:6,w:4},
+  {x:124,y:9,w:5},{x:132,y:7,w:3},{x:140,y:8,w:4},{x:148,y:6,w:4},
+  {x:170,y:9,w:4},{x:178,y:7,w:4},{x:186,y:8,w:3},{x:194,y:6,w:4},
+];
+const SPIKES=[
+  {x:58,y:11,w:2},{x:96,y:11,w:3},{x:136,y:11,w:2},{x:182,y:11,w:3},
+];
+const GOLDS=[
+  [36,10],[50,8],[60,8],[66,8],[88,6],[104,7],[112,5],[126,8],
+  [134,6],[144,7],[152,5],[160,10],[172,8],[180,6],[190,7],[206,10],
+];
+const JARS=[[12,11],[18,11],[70,8],[110,5],[150,5],[176,6],[205,10]];
+const FOES_DEF=[                                  // [type, tileX, tileY]
+  ["bug",34,11],["bat",48,5],["bug",62,11],["knight",75,11],
+  ["bat",90,4],["bug",104,11],["bat",116,5],["knight",130,11],
+  ["bug",142,11],["bat",156,4],["knight",172,11],["bat",188,5],
+  ["bug",198,11],["knight",208,11],
+];
+const SHOP_X=14;                                  // shopkeeper tile column
+const DOOR_X=160;                                 // locked Mantra door column
+const CHECKPTS=[3, 84, 144, 200];
+
+let grid;
+function buildWorld(){
+  grid=[]; for(let x=0;x<LEVEL_W;x++){ const c=[]; for(let y=0;y<LH;y++) c.push(""); grid.push(c); }
+  const inPit=x=>PITS.some(p=>x>=p[0]&&x<=p[1]);
+  for(let x=0;x<LEVEL_W;x++) if(!inPit(x)){ grid[x][12]="#"; grid[x][13]="#"; }
+  for(let x=BOSS_X;x<LEVEL_W;x++){ grid[x][12]="#"; grid[x][13]="#"; } // arena floor
+  for(let y=0;y<LH;y++) grid[LEVEL_W-1][y]="#";                        // arena wall
+  for(let x=0;x<28;x++){ grid[x][12]="#"; grid[x][13]="#"; }           // safe town
+  PLAT.forEach(p=>{ for(let i=0;i<p.w;i++) if(grid[p.x+i]) grid[p.x+i][p.y]="#"; });
+  SPIKES.forEach(s=>{ for(let i=0;i<s.w;i++) if(grid[s.x+i]) grid[s.x+i][s.y]="^"; });
+  GOLDS.forEach(([x,y])=>{ if(grid[x]) grid[x][y]="$"; });
+  JARS.forEach(([x,y])=>{ if(grid[x]) grid[x][y]="J"; });
+  for(let y=8;y<12;y++) grid[DOOR_X][y]="K";                           // locked door
+}
+function sealArena(on){ for(let y=4;y<12;y++) grid[BOSS_X][y]= on?"#":""; }
+const isSolid=(tx,ty)=> tx>=0&&ty>=0&&tx<LEVEL_W&&ty<LH &&
+  (grid[tx][ty]==="#" || grid[tx][ty]==="K");
+const spikeAt=(tx,ty)=> tx>=0&&ty>=0&&tx<LEVEL_W&&ty<LH && grid[tx][ty]==="^";
+
+// ---------- State ----------
+let player, foes, shots, parts, boss, cam,
+    lives, cpIndex, state, shake, msgT, msgText="", started=false, shopCd=0, win=false;
+
+const TITLES=[
+  {g:0,name:"Pilgrim",hp:14},{g:250,name:"Aleph",hp:18},
+  {g:700,name:"Bet",hp:22},{g:1400,name:"Gimel",hp:27},
+  {g:2400,name:"Dalet",hp:33},{g:4000,name:"He",hp:40},
+];
+function rankFor(total){ let r=TITLES[0]; for(const t of TITLES) if(total>=t.g) r=t; return r; }
+
+function spawnPlayer(tx){
+  const r=rankFor(player?player.totalGold:0);
+  player={x:tx*TS, y:(LH-4)*TS, w:11, h:20, vx:0, vy:0, dir:1, onGround:false,
+    maxHp:r.hp, hp:r.hp, mp:8, maxMp:12, gold:player?player.gold:0,
+    totalGold:player?player.totalGold:0, sword:player?player.sword:1,
+    armor:player?player.armor:0, hasKey:player?player.hasKey:false,
+    title:r.name, inv:0, atk:0, cd:0, magCd:0, anim:0, dead:0, _j:0};
+}
+function spawnFoes(){
+  foes=[];
+  FOES_DEF.forEach(([t,tx,ty])=> foes.push({
+    t, x:tx*TS, y:ty*TS, w:t==="knight"?15:14, h:t==="bat"?12:14,
+    vx:0, vy:0, dir:-1, hp:t==="knight"?6:t==="bat"?2:3,
+    t2:Math.random()*6.28, hy0:undefined, alive:true,
+    gold:t==="knight"?60:t==="bat"?22:30}));
+}
+function resetGame(){
+  buildWorld(); lives=3; cpIndex=0;
+  shots=[]; parts=[]; boss=null; win=false;
+  cam={x:0}; shake=0; msgT=0; shopCd=0; state="play";
+  player=null; spawnPlayer(CHECKPTS[0]); spawnFoes();
+  msg("EOLIS — visit the shop");
+}
+function respawn(){
+  lives--;
+  if(lives<0){ state="gameover"; showOver("GAME OVER","The poison consumed the Worldtree."); return; }
+  shots=[]; parts=[]; boss=null; sealArena(false);
+  player.gold=Math.floor(player.gold/2);             // Faxanadu-style toll
+  spawnFoes(); spawnPlayer(CHECKPTS[cpIndex]); state="play";
+}
+
+// ---------- Canvas ----------
+function resize(){
+  DPR=Math.min(devicePixelRatio||1,2);
+  SCR_W=innerWidth; SCR_H=innerHeight;
+  cv.width=SCR_W*DPR; cv.height=SCR_H*DPR;
+  cv.style.width=SCR_W+"px"; cv.style.height=SCR_H+"px";
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.imageSmoothingEnabled=false;
+  SCALE=Math.max(1, Math.min(SCR_W/GW, SCR_H/GH));
+  OX=Math.floor((SCR_W-GW*SCALE)/2);
+  OY=Math.floor((SCR_H-GH*SCALE)/2);
+  layoutPads();
+}
+addEventListener("resize",resize);
+
+// ---------- Input ----------
+const key={}, touch={left:0,right:0,jump:0,atk:0,mag:0};
+const IN={left:0,right:0,jump:0,atk:0,mag:0};
+addEventListener("keydown",e=>{ const k=e.key.toLowerCase(); key[k]=true;
+  if(["arrowleft","arrowright","arrowup","arrowdown"," "].includes(k)) e.preventDefault(); });
+addEventListener("keyup",e=>{ key[e.key.toLowerCase()]=false; });
+function pollInput(){
+  IN.left =(key["arrowleft"] ||key["a"]||touch.left )?1:0;
+  IN.right=(key["arrowright"]||key["d"]||touch.right)?1:0;
+  IN.jump =(key["arrowup"]   ||key["w"]||key[" "]||touch.jump)?1:0;
+  IN.atk  =(key["j"]||key["x"]||touch.atk)?1:0;
+  IN.mag  =(key["k"]||key["l"]||touch.mag)?1:0;
+}
+let pads={};
+function layoutPads(){
+  const r=Math.max(32,Math.min(52,SCR_W*0.068));
+  const by=SCR_H-r-Math.max(20,SCR_H*0.05);
+  pads={
+    left :{x:r+20,            y:by,        r,        k:"left", lbl:"◄"},
+    right:{x:r*3+42,          y:by,        r,        k:"right",lbl:"►"},
+    jump :{x:r+20,            y:by-r*2-14, r,        k:"jump", lbl:"▲"},
+    atk  :{x:SCR_W-r-20,      y:by,        r:r*1.15, k:"atk",  lbl:"🗡"},
+    mag  :{x:SCR_W-r*3-46,    y:by,        r,        k:"mag",  lbl:"✦"},
+  };
+}
+const tmap={};
+function hitPad(px,py){ for(const k in pads){ const p=pads[k];
+  if((px-p.x)**2+(py-p.y)**2 < (p.r*1.3)**2) return p.k; } return null; }
+function ptPos(e){ const b=cv.getBoundingClientRect(); return [e.clientX-b.left,e.clientY-b.top]; }
+cv.addEventListener("pointerdown",e=>{
+  cv.setPointerCapture(e.pointerId);
+  if(state!=="play"&&state!=="boss") return;
+  const [x,y]=ptPos(e), k=hitPad(x,y);
+  if(k){ tmap[e.pointerId]=k; touch[k]=1; }
+},{passive:false});
+cv.addEventListener("pointermove",e=>{
+  if(!(e.pointerId in tmap)) return;
+  const [x,y]=ptPos(e), nk=hitPad(x,y), ok=tmap[e.pointerId];
+  if(nk!==ok){ if(ok)touch[ok]=0; tmap[e.pointerId]=nk; if(nk)touch[nk]=1; }
+},{passive:false});
+function endPtr(e){ const k=tmap[e.pointerId];
+  if(k!==undefined){ if(k)touch[k]=0; delete tmap[e.pointerId]; } }
+cv.addEventListener("pointerup",endPtr);
+cv.addEventListener("pointercancel",endPtr);
+
+// ---------- Physics ----------
+function moveX(o){
+  o.x+=o.vx;
+  const top=Math.floor(o.y/TS), bot=Math.floor((o.y+o.h-1)/TS);
+  if(o.vx>0){ const tx=Math.floor((o.x+o.w)/TS);
+    for(let ty=top;ty<=bot;ty++) if(isSolid(tx,ty)){ o.x=tx*TS-o.w; o.vx=0; break; } }
+  else if(o.vx<0){ const tx=Math.floor(o.x/TS);
+    for(let ty=top;ty<=bot;ty++) if(isSolid(tx,ty)){ o.x=(tx+1)*TS; o.vx=0; break; } }
+}
+function moveY(o){
+  o.y+=o.vy; o.onGround=false;
+  const lf=Math.floor(o.x/TS), rt=Math.floor((o.x+o.w-1)/TS);
+  if(o.vy>0){ const ty=Math.floor((o.y+o.h)/TS);
+    for(let tx=lf;tx<=rt;tx++) if(isSolid(tx,ty)){ o.y=ty*TS-o.h; o.vy=0; o.onGround=true; break; } }
+  else if(o.vy<0){ const ty=Math.floor(o.y/TS);
+    for(let tx=lf;tx<=rt;tx++) if(isSolid(tx,ty)){ o.y=(ty+1)*TS; o.vy=0; break; } }
+}
+function tileHit(o,ch){
+  const lf=Math.floor((o.x+1)/TS), rt=Math.floor((o.x+o.w-2)/TS);
+  const tp=Math.floor(o.y/TS), bt=Math.floor((o.y+o.h-1)/TS);
+  for(let tx=lf;tx<=rt;tx++)for(let ty=tp;ty<=bt;ty++)
+    if(grid[tx]&&grid[tx][ty]===ch) return [tx,ty];
+  return null;
+}
+const aabb=(a,b)=> a.x<b.x+b.w && a.x+a.w>b.x && a.y<b.y+b.h && a.y+a.h>b.y;
+
+// ---------- Update ----------
+function update(){
+  if(state!=="play"&&state!=="boss") return;
+  if(shake>0) shake--;
+  if(msgT>0) msgT--;
+  if(shopCd>0) shopCd--;
+  const p=player;
+
+  if(p.dead>0){ p.dead--; p.vy=Math.min(MAXFALL,p.vy+GRAV); p.y+=p.vy;
+    updateParts(); if(p.dead===0) respawn(); return; }
+
+  pollInput();
+  if(IN.left&&!IN.right){ p.vx=-RUN; p.dir=-1; }
+  else if(IN.right&&!IN.left){ p.vx=RUN; p.dir=1; }
+  else p.vx=0;
+  moveX(p);
+
+  if(IN.jump&&p.onGround){ p.vy=JUMP; p.onGround=false; p._j=1; }
+  if(!IN.jump&&p.vy<0&&p._j){ p.vy*=0.55; p._j=0; }
+  p.vy=Math.min(MAXFALL,p.vy+GRAV);
+  moveY(p);
+  if(p.vx&&p.onGround) p.anim+=0.25;
+
+  while(cpIndex<CHECKPTS.length-1 && p.x>CHECKPTS[cpIndex+1]*TS) cpIndex++;
+
+  // attack (sword) — short reach hitbox in front
+  if(p.cd>0) p.cd--;
+  if(p.magCd>0) p.magCd--;
+  if(IN.atk && p.cd<=0){ p.atk=10; p.cd=20; }
+  if(p.atk>0){ p.atk--;
+    const hb={x:p.dir>0?p.x+p.w:p.x-13, y:p.y+3, w:13, h:14};
+    for(const f of foes) if(f.alive && aabb(hb,f)){
+      f.hp-=p.sword; spark(f.x+7,f.y+7);
+      if(f.hp<=0) killFoe(f);
+    }
+    const j=tileHit(hb,"J"); if(j){ grid[j[0]][j[1]]=""; dropGold(j[0]*TS+8,j[1]*TS+8,18); }
+    if(boss && state==="boss" && boss.intro<=0 && boss.inv<=0 && aabb(hb,boss)){
+      boss.hp-=p.sword; boss.inv=12; shake=4; spark(boss.x+12,boss.y+14);
+      if(boss.hp<=0) winGame();
+    }
+  }
+  // magic bolt
+  if(p.mp<p.maxMp) p.mp+=0.012;
+  if(IN.mag && p.magCd<=0 && p.mp>=4){
+    p.mp-=4; p.magCd=26;
+    shots.push({x:p.x+(p.dir>0?p.w:-6),y:p.y+7,w:6,h:6,vx:4.6*p.dir,dead:0});
+  }
+
+  // pickups / hazards
+  const g=tileHit(p,"$"); if(g){ grid[g[0]][g[1]]=""; addGold(25); }
+  if(spikeAt(Math.floor((p.x+p.w/2)/TS),Math.floor((p.y+p.h-1)/TS))) hurt(4);
+  if(p.y>GH+50){ p.hp=0; killPlayer(); }
+
+  // shop trigger (touch the keeper in town)
+  if(shopCd<=0 && state==="play" &&
+     Math.abs((p.x+p.w/2)-(SHOP_X*TS+8))<12 && p.y>(LH-5)*TS){
+    openShop(); return;
+  }
+  // locked door — opens when you reach it carrying the Mantra Key
+  if(p.hasKey && grid[DOOR_X][9]==="K" &&
+     Math.abs((p.x+p.w/2)-(DOOR_X*TS+8))<22){
+    for(let y=0;y<LH;y++) if(grid[DOOR_X][y]==="K") grid[DOOR_X][y]="";
+    p.hasKey=false; msg("The Mantra Key shatters the seal!");
+  }
+
+  if(p.inv>0) p.inv--;
+
+  // enter boss arena
+  if(!boss && state==="play" && p.x>(BOSS_X+1)*TS){
+    state="boss"; sealArena(true);
+    boss={x:(LEVEL_W-8)*TS, y:(LH-7)*TS, w:30, h:34, vx:0, vy:0, dir:-1,
+      onGround:false, hp:BOSS_MAX, t:70, inv:0, intro:80, a:0};
+    msg("⚠  THE EVIL ONE");
+  }
+
+  updateShots(); updateFoes(); if(boss) updateBoss(); updateParts();
+
+  if(state==="boss") cam.x=ARENA_CAM;
+  else { const cx=clamp(p.x+p.w/2-GW/2,0,LEVEL_W*TS-GW);
+    cam.x += (cx-cam.x)*0.2; }
+}
+
+function addGold(n){ player.gold+=n; player.totalGold+=n;
+  const r=rankFor(player.totalGold);
+  if(r.name!==player.title){ player.title=r.name; player.maxHp=r.hp;
+    player.hp=r.hp; msg("TITLE EARNED — "+r.name); } }
+function dropGold(x,y,n){ addGold(n);
+  for(let i=0;i<6;i++) parts.push({x,y,vx:(Math.random()-.5)*3,
+    vy:-Math.random()*3,life:24,c:"#ffd24a",g:0.16}); }
+function killFoe(f){ f.alive=false; dropGold(f.x+7,f.y+7,f.gold);
+  boom(f.x+7,f.y+7,"#9be7a0"); }
+function hurt(dmg){
+  if(player.inv>0||player.dead>0) return;
+  const d=Math.max(1,dmg-player.armor);
+  player.hp-=d; player.inv=66; shake=5;
+  if(player.hp<=0) killPlayer();
+}
+function killPlayer(){
+  if(player.dead>0) return;
+  player.dead=70; player.vy=-7; player.vx=0; player.hp=0;
+  boom(player.x+player.w/2,player.y+8,"#7ad07f");
+}
+
+function updateShots(){
+  for(const s of shots){
+    s.x+=s.vx; if(s.vy) s.y+=s.vy;
+    if(s.x<cam.x-24||s.x>cam.x+GW+24||s.y<-24||s.y>GH+24){ s.dead=1; continue; }
+    const tx=Math.floor((s.x+3)/TS), ty=Math.floor((s.y+3)/TS);
+    if(isSolid(tx,ty)){ s.dead=1; spark(s.x,s.y); continue; }
+    if(s.foe){                                   // enemy/boss projectile
+      if(player.dead<=0&&player.inv<=0&&aabb(s,player)){ s.dead=1; hurt(6); }
+      continue;
+    }
+    for(const f of foes) if(f.alive&&aabb(s,f)){
+      f.hp-=3; s.dead=1; spark(s.x,s.y); if(f.hp<=0) killFoe(f); break; }
+    if(boss && boss.intro<=0 && boss.inv<=0 && !s.dead && aabb(s,boss)){
+      boss.hp-=3; boss.inv=8; s.dead=1; spark(s.x,s.y);
+      if(boss.hp<=0) winGame();
+    }
+  }
+  shots=shots.filter(s=>!s.dead);
+}
+function updateFoes(){
+  for(const f of foes){
+    if(!f.alive) continue;
+    if(f.x<cam.x-80||f.x>cam.x+GW+100) continue;
+    if(f.t==="bug"||f.t==="knight"){
+      const sp=f.t==="knight"?0.8:0.95;
+      f.x+=f.dir*sp;
+      const ahead=Math.floor((f.x+(f.dir>0?f.w+1:-1))/TS);
+      const mid=Math.floor((f.y+f.h/2)/TS);
+      const foot=Math.floor((f.y+f.h+1)/TS);
+      if(isSolid(ahead,mid)||!isSolid(ahead,foot)) f.dir*=-1;
+      f.vy=Math.min(MAXFALL,f.vy+GRAV); moveY(f);
+    } else {                                            // bat
+      f.t2+=0.06;
+      if(f.hy0===undefined) f.hy0=f.y;
+      f.x+=Math.sign(player.x-f.x)*0.85;
+      f.y=f.hy0+Math.sin(f.t2)*26;
+    }
+    if(f.alive&&player.dead<=0&&player.inv<=0&&aabb(f,player))
+      hurt(f.t==="knight"?6:4);
+  }
+  foes=foes.filter(f=>f.alive);
+}
+function updateBoss(){
+  const b=boss;
+  if(b.inv>0) b.inv--;
+  if(b.intro>0){ b.intro--; if(b.intro===0) b.t=40; return; }
+  b.vy=Math.min(MAXFALL,b.vy+GRAV);
+  b.x+=b.vx;
+  const aL=(LEVEL_W-16)*TS, aR=(LEVEL_W-2)*TS-b.w;
+  if(b.x<aL){ b.x=aL; b.dir=1; if(!b.onGround) b.vx=Math.abs(b.vx); }
+  if(b.x>aR){ b.x=aR; b.dir=-1; if(!b.onGround) b.vx=-Math.abs(b.vx); }
+  moveY(b);
+  if(--b.t<=0){
+    if(b.onGround){
+      b.a=(b.a+1)%3;
+      if(b.a===0){ b.vy=-9; b.vx=(player.x>b.x?1:-1)*1.8; b.dir=Math.sign(b.vx)||1; b.t=66; }
+      else {
+        const dx=player.x-b.x;
+        for(const a of [-0.5,-0.15,0.2,0.55]) shots.push({
+          x:b.x+b.w/2,y:b.y+14,w:7,h:7,vx:(dx>0?2.6:-2.6),vy:a*2.6,dead:0,foe:1});
+        b.vx=0; b.t=56;
+      }
+    } else b.t=8;
+  }
+  if(b.onGround && b.t>40) b.vx*=0.9;
+  if(player.dead<=0&&player.inv<=0&&aabb(b,player)) hurt(7);
+}
+
+function spark(x,y){ for(let i=0;i<5;i++) parts.push({
+  x,y,vx:(Math.random()-.5)*3,vy:(Math.random()-.5)*3,life:10,c:"#eafff0",g:0}); }
+function boom(x,y,c){ shake=Math.max(shake,6);
+  for(let i=0;i<16;i++){ const a=Math.random()*6.28,s=1+Math.random()*3;
+    parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:24,c,g:0.12}); } }
+function updateParts(){ for(const q of parts){ q.x+=q.vx; q.y+=q.vy; q.vy+=q.g; q.life--; }
+  parts=parts.filter(q=>q.life>0); }
+
+function winGame(){ boss=null; state="win"; win=true; shake=12;
+  boom((LEVEL_W-7)*TS,(LH-7)*TS,"#ffd24a");
+  showOver("✦ WORLDTREE SAVED ✦",
+    "The Evil One falls. Title: "+player.title+" — gold "+player.totalGold+"."); }
+function msg(t){ msgText=t; msgT=170; }
+
+// ---------- Shop ----------
+const SHOP=[
+  {id:"potion",name:"Heal Potion",cost:60,desc:"Restore HP"},
+  {id:"elixir",name:"Magic Elixir",cost:50,desc:"Restore MP"},
+  {id:"sword", name:"Sword Up",   cost:140,desc:"+2 attack"},
+  {id:"armor", name:"Armor Up",   cost:160,desc:"-1 damage taken"},
+  {id:"key",   name:"Mantra Key", cost:220,desc:"Opens the sealed door"},
+];
+const elShop=document.getElementById("shop"),
+      elShopItems=document.getElementById("shopItems"),
+      elShopGold=document.getElementById("shopGold");
+function renderShop(){
+  elShopGold.textContent="Gold: "+player.gold;
+  elShopItems.innerHTML="";
+  SHOP.forEach(it=>{
+    const owned=(it.id==="key"&&player.hasKey);
+    const can=player.gold>=it.cost && !owned;
+    const row=document.createElement("div"); row.className="item";
+    row.innerHTML=`<span>${it.name}<br><small style="color:#9c8e6f">${it.desc}</small></span>`+
+      `<button ${can?"":"disabled"}>${owned?"OWNED":"<b>"+it.cost+"</b> g"}</button>`;
+    row.querySelector("button").onclick=()=>buy(it);
+    elShopItems.appendChild(row);
+  });
+}
+function buy(it){
+  if(player.gold<it.cost) return;
+  if(it.id==="key"&&player.hasKey) return;
+  player.gold-=it.cost;
+  if(it.id==="potion") player.hp=player.maxHp;
+  else if(it.id==="elixir") player.mp=player.maxMp;
+  else if(it.id==="sword") player.sword+=2;
+  else if(it.id==="armor") player.armor+=1;
+  else if(it.id==="key") player.hasKey=true;
+  renderShop();
+}
+function openShop(){ state="shop"; renderShop(); elShop.classList.remove("hide"); }
+document.getElementById("shopClose").onclick=()=>{
+  elShop.classList.add("hide"); shopCd=70;
+  player.x=(SHOP_X+2)*TS; state="play"; msg("Buy the Mantra Key to pass the door");
+};
+
+// ---------- Render ----------
+function draw(){
+  ctx.fillStyle="#0a0803"; ctx.fillRect(0,0,SCR_W,SCR_H);
+  ctx.save();
+  ctx.translate(OX,OY); ctx.scale(SCALE,SCALE);
+  ctx.beginPath(); ctx.rect(0,0,GW,GH); ctx.clip();
+  const sx= shake? (Math.random()-.5)*shake:0;
+  const sy= shake? (Math.random()-.5)*shake:0;
+  ctx.translate(-Math.floor(cam.x)+sx, sy);
+
+  drawBG();
+  const c0=Math.max(0,Math.floor(cam.x/TS)-1);
+  const c1=Math.min(LEVEL_W-1,Math.floor((cam.x+GW)/TS)+1);
+  for(let x=c0;x<=c1;x++)for(let y=0;y<LH;y++){
+    const t=grid[x][y]; if(!t) continue;
+    const px=x*TS, py=y*TS;
+    if(t==="#"){
+      ctx.fillStyle="#5a3c1c"; ctx.fillRect(px,py,TS,TS);
+      ctx.fillStyle="#724c24"; ctx.fillRect(px+1,py+1,TS-2,4);
+      ctx.fillStyle="#3c2710"; ctx.fillRect(px+1,py+TS-3,TS-2,2);
+    } else if(t==="K"){
+      ctx.fillStyle="#caa45a"; ctx.fillRect(px,py,TS,TS);
+      ctx.fillStyle="#7a5f24"; ctx.fillRect(px+5,py+2,6,TS-4);
+    } else if(t==="^"){
+      ctx.fillStyle="#9fb0c0";
+      for(let i=0;i<2;i++){ const bx=px+i*8;
+        ctx.beginPath(); ctx.moveTo(bx,py+TS); ctx.lineTo(bx+4,py+3);
+        ctx.lineTo(bx+8,py+TS); ctx.closePath(); ctx.fill(); }
+    } else if(t==="$"){
+      ctx.fillStyle="#ffd24a";
+      ctx.beginPath(); ctx.arc(px+8,py+9,4,0,6.28); ctx.fill();
+      ctx.fillStyle="#a9791a"; ctx.fillRect(px+7,py+8,2,2);
+    } else if(t==="J"){
+      ctx.fillStyle="#7d6b46"; ctx.fillRect(px+3,py+4,10,11);
+      ctx.fillStyle="#9c8757"; ctx.fillRect(px+4,py+2,8,3);
+    }
+  }
+  drawShopkeeper(); drawFoes(); if(boss) drawBoss();
+  drawShots(); drawPlayer(); drawParts();
+  ctx.restore();
+  drawHUD();
+  if(state==="play"||state==="boss") drawPads();
+}
+function drawBG(){
+  const g=ctx.createLinearGradient(0,0,0,GH);
+  g.addColorStop(0,"#23351c"); g.addColorStop(1,"#120c05");
+  ctx.fillStyle=g; ctx.fillRect(cam.x,0,GW,GH);
+  ctx.fillStyle="rgba(60,40,18,.4)";
+  for(let i=0;i<10;i++){
+    const bx=cam.x - (cam.x*0.4 % 110) + i*110 - 110;
+    ctx.fillRect(bx, 0, 30, GH);                       // trunk pillars
+  }
+  ctx.fillStyle="rgba(120,200,130,.10)";
+  for(let i=0;i<14;i++){
+    const bx=cam.x - (cam.x*0.6 % 90) + i*90 - 90;
+    ctx.beginPath(); ctx.arc(bx, 28+(i%3)*12, 22, 0, 6.28); ctx.fill();
+  }
+}
+function drawShopkeeper(){
+  const x=SHOP_X*TS, y=(LH-4)*TS;
+  ctx.fillStyle="#3a2a14"; ctx.fillRect(x-12,y-22,38,34);  // hut
+  ctx.fillStyle="#5a3c1c"; ctx.fillRect(x-14,y-26,42,6);
+  ctx.fillStyle="#caa45a"; ctx.fillRect(x+3,y-2,8,14);     // keeper
+  ctx.fillStyle="#e9d3a0"; ctx.fillRect(x+4,y-7,6,6);
+}
+function drawPlayer(){
+  const p=player;
+  if(p.inv>0 && p.inv%6<3 && p.dead<=0) return;
+  const x=Math.round(p.x), y=Math.round(p.y), d=p.dir;
+  ctx.fillStyle="#235c2a";
+  const step=(p.onGround&&p.vx)?(Math.floor(p.anim)%2?3:0):1;
+  ctx.fillRect(x+1,y+14,4,6); ctx.fillRect(x+6,y+14-step,4,6+step);
+  ctx.fillStyle="#3a8c44"; ctx.fillRect(x,y+5,p.w,10);     // tunic
+  ctx.fillStyle="#2a6630"; ctx.fillRect(x,y+12,p.w,3);
+  ctx.fillStyle="#e9d3a0"; ctx.fillRect(x+2,y,8,7);        // face
+  ctx.fillStyle="#235c2a"; ctx.fillRect(x+1,y-3,10,4);     // hood
+  ctx.fillStyle="#1a1206"; ctx.fillRect(x+(d>0?7:2),y+2,2,2);
+  if(p.atk>0){ ctx.fillStyle="#dfeff5";
+    ctx.fillRect(x+(d>0?p.w:-13),y+5,13,3); }              // sword slash
+}
+function drawShots(){
+  for(const s of shots){
+    ctx.fillStyle= s.foe? "#ff7a7a" : "#9be7ff";
+    ctx.beginPath(); ctx.arc(s.x+3,s.y+3,s.w/2+1,0,6.28); ctx.fill();
+  }
+}
+function drawFoes(){
+  for(const f of foes){
+    if(!f.alive) continue;
+    const x=Math.round(f.x), y=Math.round(f.y);
+    if(f.t==="bug"){
+      ctx.fillStyle="#9e6b3a"; ctx.fillRect(x,y+3,14,10);
+      ctx.fillStyle="#5c3a18"; ctx.fillRect(x+(f.dir>0?10:2),y+5,3,3);
+    } else if(f.t==="bat"){
+      ctx.fillStyle="#7b5aa6";
+      ctx.beginPath(); ctx.arc(x+7,y+7,6,0,6.28); ctx.fill();
+      const w=Math.sin(performance.now()/55)*4;
+      ctx.fillStyle="#b89bdd";
+      ctx.fillRect(x-3,y+5-w,5,4); ctx.fillRect(x+12,y+5-w,5,4);
+    } else {
+      ctx.fillStyle="#9aa6b6"; ctx.fillRect(x,y,15,14);
+      ctx.fillStyle="#cdd8e6"; ctx.fillRect(x+(f.dir>0?11:1),y+4,4,5);
+      ctx.fillStyle="#6a7686"; ctx.fillRect(x,y+12,15,2);
+    }
+  }
+}
+function drawBoss(){
+  const b=boss;
+  const x=Math.round(b.x), y=Math.round(b.y);
+  ctx.fillStyle=(b.inv>0&&b.inv%4<2)?"#ffffff":"#6b2f8a";
+  ctx.fillRect(x,y+8,b.w,b.h-8);
+  ctx.fillStyle="#3c1252"; ctx.fillRect(x,y+b.h-7,b.w,7);
+  ctx.fillStyle="#caa45a"; ctx.fillRect(x+5,y,b.w-10,10); // crown
+  ctx.fillStyle="#ff5a5a"; ctx.fillRect(x+(b.dir>0?b.w-11:6),y+13,5,4);
+  ctx.fillStyle="#9b6fc0"; ctx.fillRect(x+6,y+20,b.w-12,5);
+}
+function drawParts(){
+  for(const q of parts){ ctx.globalAlpha=Math.max(0,q.life/24);
+    ctx.fillStyle=q.c; ctx.fillRect(q.x,q.y,2,2); }
+  ctx.globalAlpha=1;
+}
+function bar(x,y,val,max,col,wd){
+  const W=wd||40;
+  ctx.fillStyle="#1a1206"; ctx.fillRect(x-1,y-1,W+2,5);
+  ctx.fillStyle="#3a2a14"; ctx.fillRect(x,y,W,3);
+  ctx.fillStyle=col; ctx.fillRect(x,y,Math.max(0,W*val/max),3);
+}
+function drawHUD(){
+  ctx.save(); ctx.translate(OX,OY); ctx.scale(SCALE,SCALE);
+  const p=player;
+  ctx.fillStyle="#eafff0"; ctx.font="7px monospace"; ctx.textBaseline="top";
+  ctx.fillText("HP",6,6); bar(22,7, Math.max(0,p?p.hp:0), p?p.maxHp:1,"#e8556b");
+  ctx.fillText("MP",6,14); bar(22,15, p?p.mp:0, p?p.maxMp:1,"#5a9bff");
+  ctx.fillText((p?p.title:"")+"  ", 6, 22);
+  ctx.fillStyle="#ffd24a"; ctx.fillText("$"+(p?p.gold:0), 70, 6);
+  ctx.fillStyle="#9be7ff";
+  ctx.fillText("LV"+(p?p.sword:1)+(p&&p.hasKey?"  KEY":""), 70, 14);
+  ctx.fillStyle="#eafff0"; ctx.fillText("x"+Math.max(0,lives), 70, 22);
+  if(boss){ ctx.fillStyle="#ff8fae"; ctx.fillText("EVIL",GW-58,6);
+    bar(GW-44,7,Math.max(0,boss.hp),BOSS_MAX,"#ff5a8a",38); }
+  if(msgT>0){
+    ctx.globalAlpha=Math.min(1,msgT/30);
+    ctx.fillStyle="#ffe27a"; ctx.font="bold 9px monospace"; ctx.textAlign="center";
+    ctx.fillText(msgText,GW/2,GH*0.16); ctx.textAlign="left"; ctx.globalAlpha=1;
+  }
+  ctx.restore();
+}
+function pbtn(p,on){
+  ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,6.28);
+  ctx.fillStyle=on?"rgba(122,208,127,.45)":"rgba(150,130,90,.16)"; ctx.fill();
+  ctx.lineWidth=3; ctx.strokeStyle="rgba(220,200,150,.5)"; ctx.stroke();
+  ctx.fillStyle="rgba(240,230,207,.92)";
+  ctx.font="bold "+Math.floor(p.r*0.8)+"px system-ui";
+  ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillText(p.lbl,p.x,p.y+1); ctx.textAlign="left";
+}
+function drawPads(){
+  pbtn(pads.left,touch.left); pbtn(pads.right,touch.right);
+  pbtn(pads.jump,touch.jump); pbtn(pads.atk,touch.atk);
+  pbtn(pads.mag,touch.mag);
+}
+
+// ---------- Overlays + loop ----------
+const elStart=document.getElementById("start"), elOver=document.getElementById("over");
+function showOver(t,m){ document.getElementById("overTitle").textContent=t;
+  document.getElementById("overMsg").textContent=m; elOver.classList.remove("hide"); }
+document.getElementById("startBtn").onclick=()=>{ elStart.classList.add("hide");
+  started=true; resetGame(); };
+document.getElementById("overBtn").onclick=()=>{ elOver.classList.add("hide");
+  started=true; resetGame(); };
+
+let acc=0, last=performance.now();
+function loop(now){
+  let dt=now-last; last=now; if(dt>100) dt=100;
+  acc+=dt; let steps=0;
+  while(acc>=1000/60 && steps<4){ if(started) update(); acc-=1000/60; steps++; }
+  if(started) draw();
+  requestAnimationFrame(loop);
+}
+
+// init
+buildWorld();
+shots=[]; parts=[]; foes=[]; boss=null;
+cam={x:0}; lives=3; cpIndex=0; shake=0; msgT=0; state="title";
+spawnPlayer(CHECKPTS[0]); spawnFoes();
+resize();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
