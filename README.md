@@ -5,10 +5,12 @@ landing page that lists every game; each game lives in its own folder under
 `games/`. Pure HTML5/canvas — no build step, no dependencies.
 
 ```
-index.html                  # landing page (the games list)
+index.html                       # landing page (the games list)
 games/
-  pocket-city/index.html    # 🏙️ Pocket City — SimCity-style city builder
-.github/workflows/deploy.yml
+  pocket-city/index.html         # 🏙️ Pocket City  — SimCity-style city builder
+  super-run/index.html           # 🍄 Super Run     — Mario-style auto-runner
+  star-requiem/index.html        # 🚀 Star Requiem  — neon shoot 'em up
+.github/workflows/deploy.yml     # builds the site → gh-pages branch
 ```
 
 To add a game: drop it in `games/<name>/index.html` and add an entry to the
@@ -22,8 +24,8 @@ the hub automatically.
 The deploy workflow builds the site and pushes it to a `gh-pages` branch
 (this avoids the protected `github-pages` *Actions* deployment environment).
 
-1. Push to the game branch (or run the workflow manually from the
-   **Actions** tab → *Run workflow*). It creates/updates the **`gh-pages`**
+1. Push to `main` (or the game branch), or run the workflow manually from
+   the **Actions** tab → *Run workflow*. It creates/updates the **`gh-pages`**
    branch.
 2. One-time: **Settings → Pages → Build and deployment → Source = "Deploy
    from a branch"**, then select branch **`gh-pages`** / **`/ (root)`** and
@@ -58,11 +60,27 @@ A SimCity-style city builder, redesigned for touch.
   powered.
 - Build a **⚡ Power Plant** before your city outgrows its grid — brownouts
   cause decline and unhappy citizens.
-- Watch the **R / C / I demand bars**: build what your city is asking for.
-- **🌳 Parks** raise approval; keep industry away from homes.
-- Money comes in monthly from taxes; roads and power cost upkeep. Don't go
-  broke.
+- Watch the **R / C / I demand bars**; **🌳 Parks** raise approval; keep
+  industry away from homes. Taxes fund upkeep — don't go broke.
 - Progress autosaves to your browser (`localStorage`); use the **☰ menu** to
   continue or start fresh. Adjust speed with **⏸ / ▶ / ▶▶**.
+
+### 🍄 Super Run — `games/super-run/`
+
+A Mario-style **one-tap auto-runner**. Mario runs forward automatically; the
+only control is jump.
+
+- **Touch:** tap *anywhere* to jump. **Desktop:** click, or `Space` / `↑` / `W`.
+- Time jumps to clear pits and stomp enemies from above, grab coin trails and
+  reach the flag. 3 lives across 2 levels.
+
+### 🚀 Star Requiem — `games/star-requiem/`
+
+A neon **shoot 'em up** with an intro, an upgrade bay, story beats and an
+ending — 3 stages and a 3-phase final boss.
+
+- **Drag to fly**, fire is automatic, **tap to bomb**. See
+  [`games/star-requiem/DESIGN.md`](games/star-requiem/DESIGN.md) for design
+  notes.
 
 Enjoy the arcade!

@@ -3,6 +3,7 @@ name: Deploy Game Arcade to GitHub Pages
 on:
   push:
     branches:
+      - main
       - claude/mobile-city-sim-game-DpDlD
   workflow_dispatch:
 
