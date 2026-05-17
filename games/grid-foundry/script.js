@@ -361,10 +361,7 @@ const effFactor = i => EFF[Math.min(i, EFF.length - 1)];
 /* caps voisinage */
 const CAP_SINGLE = 25, CAP_POS = 50, CAP_NEG = 40, CAP_CONS = 40;
 
-const RESERVE_MAX = {bois:400, pierre:320, nourriture:260, eau:480};
-const CLICK_BASE  = {bois:3,   pierre:3,   nourriture:2,   eau:3};
-const SOS_GIVE    = {bois:30,  pierre:30,  nourriture:20,  eau:25};
-const SOS_CD = 90;
+const CLICK_BASE  = {bois:3, pierre:3, nourriture:2, eau:3};  // récolte manuelle /tap
 const SAVE_KEY = "gridfoundry.v1";
 const OFFLINE_CAP = 600;
 
@@ -374,11 +371,9 @@ function freshState(){
   return {
     gridSize:3, tierUnlocked:1, spec:null,
     stock:{bois:40, pierre:20, eau:8}, total:{}, won:false,
-    reserve:{bois:RESERVE_MAX.bois, pierre:RESERVE_MAX.pierre,
-             nourriture:RESERVE_MAX.nourriture, eau:RESERVE_MAX.eau},
     buildings:[], nextOrder:1,
     objIdx:0, axisIdx:0,
-    sosCD:0, logs:[], lastSave:Date.now(), headerOpen:true,
+    logs:[], lastSave:Date.now(), headerOpen:true,
   };
 }
 
@@ -577,12 +572,6 @@ function tick(silent){
   // garde-fous : pas de stock négatif
   for(const k in S.stock) if(S.stock[k]<0) S.stock[k]=0;
 
-  // réserves naturelles : régénération lente
-  for(const k in S.reserve)
-    S.reserve[k]=Math.min(RESERVE_MAX[k], S.reserve[k] + RESERVE_MAX[k]*0.0015);
-
-  if(S.sosCD>0) S.sosCD--;
-
   checkObjectives(silent);
   if(!silent){ render(); }
 }
@@ -643,24 +632,10 @@ function togglePause(b){
   render();
 }
 function harvest(res){
-  const mx=RESERVE_MAX[res], cur=S.reserve[res];
-  const yld=Math.max(0.4, CLICK_BASE[res]*(0.2+0.8*cur/mx));
-  S.reserve[res]=Math.max(0,cur-CLICK_BASE[res]);
+  const yld=CLICK_BASE[res]||3;
   S.stock[res]=(S.stock[res]||0)+yld;
   S.total[res]=(S.total[res]||0)+yld;
   checkObjectives(false); render();
-}
-function sos(){
-  if(S.sosCD>0){ toast("Secours en recharge ("+S.sosCD+"s)",true); return; }
-  for(const k in SOS_GIVE){
-    S.stock[k]=(S.stock[k]||0)+SOS_GIVE[k];
-    S.total[k]=(S.total[k]||0)+SOS_GIVE[k];
-    S.reserve[k]=Math.min(RESERVE_MAX[k],S.reserve[k]+RESERVE_MAX[k]*0.5);
-  }
-  S.sosCD=SOS_CD;
-  log("Largage de secours utilisé","info");
-  toast("Secours : ressources de base livrées");
-  render();
 }
 function tryExpand(){
   const tgt=S.gridSize+1; const e=EXPAND[tgt]; if(!e) return;
@@ -703,22 +678,17 @@ function knownResources(){
 }
 function renderResources(){
   const bar=$("#resourceBar");
-  let h=knownResources().map(k=>{
+  bar.innerHTML=knownResources().map(k=>{
     const R=RESOURCES[k], amt=S.stock[k]||0, n=NET[k]||0;
     const cls=n>0.0001?"pos":(n<-0.0001?"neg":"zero");
     const sign=n>0.0001?"+":"";
     const harv=R.base;
-    const rsv=harv?`<i class="rsv">${Math.round(100*S.reserve[k]/RESERVE_MAX[k])}%</i>`:"";
     return `<button class="chip ${R.cls} ${harv?'harv':''}" ${harv?`data-h="${k}"`:""}>
       <span class="ms">${R.icon}</span>
       <b>${fmt(amt)}</b>
-      <span class="rate ${cls}">${sign}${(n).toFixed(1)}</span>${rsv}
+      <span class="rate ${cls}">${sign}${(n).toFixed(1)}</span>
     </button>`;
   }).join("");
-  h+=`<button class="chip sos" data-sos="1" ${S.sosCD>0?'disabled':''}>
-      <span class="ms">sos</span><b>Secours</b>
-      <i class="rsv">${S.sosCD>0?S.sosCD+'s':'prêt'}</i></button>`;
-  bar.innerHTML=h;
 }
 function renderResHeader(){
   const hdr=$("#resHeader"), fab=$("#hdrToggle");
@@ -1094,7 +1064,7 @@ function loadGame(){
   if(!raw){ S=freshState(); return; }
   try{
     const d=JSON.parse(raw); S=Object.assign(freshState(),d);
-    S.stock=d.stock||{}; S.total=d.total||{}; S.reserve=d.reserve||freshState().reserve;
+    S.stock=d.stock||{}; S.total=d.total||{};
     S.buildings=d.buildings||[]; S.logs=d.logs||[];
     // progression hors-ligne limitée
     const elapsed=Math.floor((Date.now()-(d.lastSave||Date.now()))/1000);
@@ -1161,8 +1131,7 @@ function bind(){
     S.headerOpen=false; renderResHeader();
   });
   $("#resourceBar").addEventListener("click",e=>{
-    const h=e.target.closest("[data-h]"); if(h){ harvest(h.dataset.h); return; }
-    if(e.target.closest("[data-sos]")) sos();
+    const h=e.target.closest("[data-h]"); if(h) harvest(h.dataset.h);
   });
 
   $("#expandBtn").addEventListener("click",tryExpand);

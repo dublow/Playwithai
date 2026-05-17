@@ -126,16 +126,11 @@ body{
 .chip b{font-weight:600;font-variant-numeric:tabular-nums}
 .chip .rate{font-size:11px;font-variant-numeric:tabular-nums}
 .chip .rate.pos{color:var(--good)} .chip .rate.neg{color:var(--warn)} .chip .rate.zero{color:var(--dim)}
-.chip .rsv{font-size:10px;color:var(--dim);font-style:normal;
-  border-left:1px solid var(--line2);padding-left:6px;margin-left:1px}
 .chip.t1 .ms{color:#ffb74d}.chip.t2 .ms{color:#7ee7ff}.chip.t3 .ms{color:#c69bff}
 .chip.fin .ms{color:var(--gold)}
 .chip.harv{cursor:pointer;border-color:var(--line2)}
 .chip.harv:active{transform:scale(.95)}
 .chip.harv .ms{color:var(--acc)}
-.chip.sos{cursor:pointer;border-color:rgba(255,207,92,.4)}
-.chip.sos .ms{color:var(--gold)}
-.chip.sos:disabled{opacity:.45;cursor:not-allowed}
 
 /* ---------- Buttons ---------- */
 .btn{
