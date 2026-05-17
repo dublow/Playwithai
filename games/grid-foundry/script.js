@@ -1006,22 +1006,37 @@ function showWin(){
 function openMenu(){
   let spec="";
   if(S.tierUnlocked>=2 && !S.spec){
-    spec=`<div class="row-btn"><button class="btn primary" onclick="showSpec()">
-      <span class="ms">hub</span>Choisir une spécialisation</button></div>`;
+    spec=`<button class="btn primary mfull" onclick="showSpec()">
+      <span class="ms">hub</span>Choisir une spécialisation</button>`;
   }
   $("#modalBody").innerHTML=`
-    <div class="sheet-h"><h2><span class="ms">settings</span>Menu</h2>
+    <div class="sheet-h"><h2><span class="ms">settings</span>Réglages</h2>
       <button class="back" onclick="closeModal()"><span class="ms">close</span></button></div>
-    ${spec}
+    <div class="menu-actions">
+      ${spec}
+      <button class="btn mfull" onclick="saveGame();toast('Partie sauvegardée');closeModal()">
+        <span class="ms">save</span>Sauvegarder la partie</button>
+      <button class="btn mfull" onclick="confirmReset()">
+        <span class="ms">restart_alt</span>Recommencer la partie</button>
+      <button class="btn mfull" onclick="goHome()">
+        <span class="ms">home</span>Retour au menu des jeux</button>
+    </div>
     <div class="sec-title">Objectifs</div>${renderGoalsTab()}
-    <div class="sec-title">Journal</div>${renderLogTab()}
-    <div class="row-btn">
-      <button class="btn primary" onclick="saveGame();toast('Partie sauvegardée');closeModal()">
-        <span class="ms">save</span>Sauvegarder</button>
-      <button class="btn danger" onclick="resetGame()">
-        <span class="ms">restart_alt</span>Réinitialiser</button>
-    </div>`;
+    <div class="sec-title">Journal</div>${renderLogTab()}`;
   $("#modal").classList.remove("hidden");
+}
+function confirmReset(){
+  $("#modalBody").innerHTML=`
+    <h2><span class="ms">restart_alt</span>Recommencer ?</h2>
+    <p>Toute la progression de cette partie sera <b>définitivement effacée</b>.</p>
+    <div class="row-btn">
+      <button class="btn" onclick="openMenu()"><span class="ms">arrow_back</span>Annuler</button>
+      <button class="btn danger" onclick="resetGame()"><span class="ms">delete_forever</span>Oui, recommencer</button>
+    </div>`;
+}
+function goHome(){
+  try{ saveGame(); }catch(e){}
+  window.location.href="../../index.html";
 }
 function showSpec(){
   let cards="";
@@ -1145,6 +1160,9 @@ function bind(){
 /* expose pour les onclick des modales */
 window.closeModal=closeModal;
 window.resetGame=resetGame;
+window.confirmReset=confirmReset;
+window.goHome=goHome;
+window.openMenu=openMenu;
 window.saveGame=saveGame;
 window.showSpec=showSpec;
 window.toast=toast;
