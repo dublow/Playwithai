@@ -251,10 +251,30 @@ body{
 .goal.cur .ms{color:var(--acc)}
 .goal.todo .ms{color:var(--dim)}
 .goal .g-prog{margin-left:auto;font-size:10.5px;color:var(--dim);font-variant-numeric:tabular-nums}
-.logline{font-size:11.5px;padding:4px 0;border-bottom:1px dashed var(--line);color:var(--muted);
-  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.5}
-.logline .t{color:var(--dim)}
-.logline.good{color:var(--good)}.logline.warn{color:var(--warn)}.logline.info{color:var(--acc2)}
+/* ---- Badges ---- */
+.badge-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));
+  gap:8px;margin-bottom:4px}
+.bdg{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;
+  padding:9px 5px 7px;background:var(--panel2);border:1px solid var(--line);border-radius:12px;
+  text-align:center}
+.bdg .medal{position:absolute;top:4px;right:5px;font-size:15px;color:#3a4760}
+.bdg .r{font-size:24px;color:var(--acc2)}
+.bdg small{font-size:9px;color:var(--muted);max-width:100%;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap;display:block}
+.bdg i{font-size:8.5px;color:var(--dim);font-style:normal}
+.bdg-row{display:flex;align-items:center;gap:11px;padding:9px 11px;margin-bottom:7px;
+  background:var(--panel2);border:1px solid var(--line);border-radius:10px}
+.bdg-row .medal{font-size:24px;color:#3a4760;flex:0 0 auto}
+.bdg-row>div{flex:1;min-width:0}
+.bdg-row b{font-size:12.5px}
+.bdg-row small{display:block;font-size:10.5px;color:var(--dim);margin-top:1px}
+.bdg-row .lvl{font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;flex:0 0 auto}
+/* paliers : Bronze / Argent / Or / Platine */
+.b1 .medal{color:#cd7f32}.b1{border-color:rgba(205,127,50,.45)}
+.b2 .medal{color:#cfd6df}.b2{border-color:rgba(207,214,223,.45)}
+.b3 .medal{color:var(--gold)}.b3{border-color:rgba(255,207,92,.5)}
+.b4 .medal{color:#67e8f9}.b4{border-color:rgba(103,232,249,.55);
+  box-shadow:0 0 0 1px rgba(103,232,249,.35)}
 
 /* ---------- Toast / Modal ---------- */
 .toast{

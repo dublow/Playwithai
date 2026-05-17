@@ -365,6 +365,44 @@ const CAP_SINGLE = 25, CAP_POS = 50, CAP_NEG = 40, CAP_CONS = 40;
 const ERA   = {1:"Ère Pionnière", 2:"Ère Industrielle", 3:"Ère Avancée"};
 const ROMAN = {1:"I", 2:"II", 3:"III"};
 const eraName = t => ERA[t] || ("Ère "+t);
+
+/* ---- Badges : 4 paliers, seuils mis à l'échelle selon la profondeur ---- */
+const BADGE_TIERS = ["Bronze","Argent","Or","Platine"];
+const BADGE_BASE  = [60, 300, 1500, 7500];                 // courbe Standard
+const BADGE_DEPTH = {"":1, t1:0.5, t2:0.25, t3:0.12, fin:0.05};
+const BUILD_THR   = [5, 15, 30, 50];                        // piste Bâtisseur
+function resThreshold(k,i){
+  return Math.max(1, Math.round(BADGE_BASE[i]*(BADGE_DEPTH[RESOURCES[k].cls]??1)));
+}
+function resBadgeLevel(k){
+  const t=S.total[k]||0; let lvl=0;
+  for(let i=0;i<4;i++) if(t>=resThreshold(k,i)) lvl=i+1;
+  return lvl;
+}
+function metaBadges(){
+  const colonie=(S.tierUnlocked>=2?1:0)+(S.tierUnlocked>=3?1:0)+(S.gridSize>=5?1:0)+(S.won?1:0);
+  const built=Math.max(0,(S.nextOrder||1)-1);
+  let bl=0; for(const t of BUILD_THR) if(built>=t) bl++;
+  return [
+    {id:"colonie",label:"Colonie",level:colonie,
+     hint:["Atteindre l'Ère Industrielle","Atteindre l'Ère Avancée","Étendre en 5×5","Accomplir la Destinée"][Math.min(colonie,3)]},
+    {id:"batisseur",label:"Bâtisseur",level:bl,
+     hint: bl<4 ? `${built}/${BUILD_THR[bl]} bâtiments construits` : "50+ bâtiments — MAX"},
+  ];
+}
+function checkBadges(silent){
+  if(!S.badges) S.badges={};
+  const award=(id,lvl,label)=>{
+    if(lvl>(S.badges[id]||0)){
+      S.badges[id]=lvl;
+      if(!silent){ const t=BADGE_TIERS[lvl-1];
+        toast(`Badge ${t} — ${label}`); log(`Badge ${t} : ${label}`,"good"); }
+    }
+  };
+  knownResources().forEach(k=>award("res_"+k,resBadgeLevel(k),rname(k)));
+  metaBadges().forEach(m=>award("meta_"+m.id,m.level,m.label));
+}
+
 const SAVE_KEY = "gridfoundry.v1";
 const OFFLINE_CAP = 600;
 
@@ -375,7 +413,7 @@ function freshState(){
     gridSize:3, tierUnlocked:1, spec:null,
     stock:{bois:40, pierre:20, eau:8}, total:{}, won:false,
     buildings:[], nextOrder:1,
-    objIdx:0, axisIdx:0,
+    objIdx:0, axisIdx:0, badges:{},
     logs:[], lastSave:Date.now(), headerOpen:true,
   };
 }
@@ -601,6 +639,7 @@ function checkObjectives(silent){
       if(o.win && !S.won){ S.won=true; if(!silent) showWin(); }
     }
   }
+  checkBadges(silent);
 }
 
 /* ===================== ACTIONS ===================== */
@@ -875,6 +914,7 @@ function renderInspect(b){
       <button class="back" data-act="close"><span class="ms">close</span></button>
     </div>
     <p class="desc">${d.desc}</p>`;
+  h+=ioLine(d.cost,"cost")+ioLine(d.consume,"cons")+ioLine(d.produce,"prod");
   h+=`<div class="kv"><span>État</span><b class="${idle?'neg':(b.paused?'':'pos')}">${
      b.paused?"En pause":(idle?"À l'arrêt (ressources)":"En activité")}</b></div>`;
   h+=`<div class="kv"><span>Rendement (exemplaire)</span><b>${Math.round(eff*100)}%</b></div>`;
@@ -956,9 +996,36 @@ function renderGoalsTab(includeCommon=true){
   }
   return h;
 }
-function renderLogTab(){
-  if(!S.logs.length) return `<p class="empty-note">Aucune activité pour l'instant.</p>`;
-  return S.logs.map(l=>`<div class="logline ${l.k}"><span class="t">${l.t}</span> ${l.m}</div>`).join("");
+function renderBadges(){
+  const res=knownResources();
+  let h=`<div class="sec-title">Badges — Production</div>`;
+  if(!res.length){
+    h+=`<p class="empty-note">Produisez des ressources pour gagner vos premiers badges.</p>`;
+  } else {
+    h+=`<div class="badge-grid">`;
+    res.forEach(k=>{
+      const lvl=resBadgeLevel(k);
+      const cur=Math.floor(S.total[k]||0);
+      const tail = lvl<4 ? `${fmt(cur)}/${fmt(resThreshold(k,lvl))}` : "MAX";
+      h+=`<div class="bdg b${lvl}" title="${rname(k)} — ${lvl?BADGE_TIERS[lvl-1]:"aucun badge"}">
+        <span class="ms medal">workspace_premium</span>
+        <span class="ms r">${RESOURCES[k].icon}</span>
+        <small>${rname(k)}</small>
+        <i>${lvl?BADGE_TIERS[lvl-1]:"—"} · ${tail}</i>
+      </div>`;
+    });
+    h+=`</div>`;
+  }
+  h+=`<div class="sec-title">Badges — Jalons</div>`;
+  metaBadges().forEach(m=>{
+    h+=`<div class="bdg-row b${m.level}">
+      <span class="ms medal">workspace_premium</span>
+      <div><b>${m.label} — ${m.level?BADGE_TIERS[m.level-1]:"Aucun"}</b>
+      <small>${m.level<4?("Prochain : "+m.hint):"Toutes les médailles obtenues"}</small></div>
+      <span class="lvl">${m.level}/4</span>
+    </div>`;
+  });
+  return h;
 }
 /* dimensionne la grille pour qu'elle TIENNE toujours dans son cadre */
 function fitGrid(){
@@ -1022,7 +1089,7 @@ function openMenu(){
         <span class="ms">home</span>Retour au menu des jeux</button>
     </div>
     ${renderGoalsTab(false)}
-    <div class="sec-title">Journal</div>${renderLogTab()}`;
+    ${renderBadges()}`;
   $("#modal").classList.remove("hidden");
 }
 function confirmReset(){
@@ -1066,7 +1133,8 @@ function loadGame(){
   try{
     const d=JSON.parse(raw); S=Object.assign(freshState(),d);
     S.stock=d.stock||{}; S.total=d.total||{};
-    S.buildings=d.buildings||[]; S.logs=d.logs||[];
+    S.buildings=d.buildings||[]; S.logs=d.logs||[]; S.badges=d.badges||{};
+    checkBadges(true);   // baseline silencieux (pas de toasts au chargement)
     // progression hors-ligne limitée
     const elapsed=Math.floor((Date.now()-(d.lastSave||Date.now()))/1000);
     const n=Math.min(Math.max(0,elapsed),OFFLINE_CAP);
