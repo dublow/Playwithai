@@ -378,12 +378,12 @@ function freshState(){
              nourriture:RESERVE_MAX.nourriture, eau:RESERVE_MAX.eau},
     buildings:[], nextOrder:1,
     objIdx:0, axisIdx:0,
-    sosCD:0, logs:[], lastSave:Date.now(),
+    sosCD:0, logs:[], lastSave:Date.now(), headerOpen:true,
   };
 }
 
 /* transient UI */
-const UI = {tab:"build", selected:null, inspect:null, hover:null};
+const UI = {sheet:null, selected:null, inspect:null, cell:null, specPrompted:false};
 let NET = {};            // débit net /sec calculé chaque tick
 let ACTIVE = {};         // id -> bool (bâtiment actif ce tick)
 let _gridHTML = null;    // cache : évite de réécrire la grille sans changement
@@ -698,62 +698,53 @@ function knownResources(){
 }
 function renderResources(){
   const bar=$("#resourceBar");
-  bar.innerHTML=knownResources().map(k=>{
+  let h=knownResources().map(k=>{
     const R=RESOURCES[k], amt=S.stock[k]||0, n=NET[k]||0;
     const cls=n>0.0001?"pos":(n<-0.0001?"neg":"zero");
     const sign=n>0.0001?"+":"";
-    return `<div class="chip ${R.cls}">
+    const harv=R.base;
+    const rsv=harv?`<i class="rsv">${Math.round(100*S.reserve[k]/RESERVE_MAX[k])}%</i>`:"";
+    return `<button class="chip ${R.cls} ${harv?'harv':''}" ${harv?`data-h="${k}"`:""}>
       <span class="ms">${R.icon}</span>
       <b>${fmt(amt)}</b>
-      <span class="rate ${cls}">${sign}${(n).toFixed(1)}</span>
-    </div>`;
+      <span class="rate ${cls}">${sign}${(n).toFixed(1)}</span>${rsv}
+    </button>`;
   }).join("");
+  h+=`<button class="chip sos" data-sos="1" ${S.sosCD>0?'disabled':''}>
+      <span class="ms">sos</span><b>Secours</b>
+      <i class="rsv">${S.sosCD>0?S.sosCD+'s':'prêt'}</i></button>`;
+  bar.innerHTML=h;
 }
-function renderHeader(){
-  $("#tierLabel").textContent=
-    `Tier ${S.tierUnlocked} · Grille ${S.gridSize}×${S.gridSize}`+
-    (S.spec?` · ${SPECS[S.spec].name}`:"");
+function renderResHeader(){
+  const hdr=$("#resHeader"), fab=$("#hdrToggle");
+  hdr.classList.toggle("open",!!S.headerOpen);
+  fab.classList.toggle("on",!!S.headerOpen);
+
+  // objectif courant + palier
+  const {list,idx}=currentObjectives();
+  const o=(list.length && idx<list.length)?list[idx]:null;
+  $("#resObjective").innerHTML = o
+    ? `<span class="ms">${o.ic}</span><div><span class="lbl">Tier ${S.tierUnlocked} · ${S.gridSize}×${S.gridSize}${S.spec?" · "+SPECS[S.spec].name:""}</span><b>${o.t}</b></div><span class="prog">${o.g?o.g(S):""}</span>`
+    : `<span class="ms">flag</span><div><span class="lbl">Tier ${S.tierUnlocked} · ${S.gridSize}×${S.gridSize}</span><b>Tous les objectifs atteints — bravo !</b></div>`;
+
   const tgt=S.gridSize+1, btn=$("#expandBtn"), e=EXPAND[tgt];
   if(e && expandReady(tgt) && !S.won){
     btn.classList.remove("hidden");
-    const ok=canAfford(e.cost);
-    btn.disabled=false;                       // tap montre ce qui manque
-    btn.classList.toggle("cant",!ok);
+    btn.disabled=false;
+    btn.classList.toggle("cant",!canAfford(e.cost));
     const costHtml=Object.entries(e.cost).map(([k,v])=>{
       const miss=(S.stock[k]||0)<v;
       return `<span class="${miss?'miss':''}">${v}&nbsp;${rname(k)}</span>`;
     }).join(" · ");
     btn.innerHTML=`<span class="ms">open_in_full</span>`+
       `<span class="ex-l"><b>${e.label}</b><small>${costHtml}</small></span>`;
-    btn.title=e.label+" — "+Object.entries(e.cost).map(([k,v])=>v+" "+rname(k)).join(", ");
   } else btn.classList.add("hidden");
-}
-function renderObjStrip(){
-  const {list,idx}=currentObjectives();
-  const el=$("#objStrip");
-  if(!list.length || idx>=list.length){
-    el.innerHTML=`<span class="ms">flag</span><div><span class="lbl">Objectif</span><b>Tous les objectifs atteints — bravo !</b></div>`;
-    return;
-  }
-  const o=list[idx];
-  el.innerHTML=`<span class="ms">${o.ic}</span>
-    <div><span class="lbl">Objectif en cours</span><b>${o.t}</b></div>
-    <span class="prog">${o.g?o.g(S):""}</span>`;
+
+  renderResources();
 }
 function renderGrid(){
   const g=$("#grid"); g.style.setProperty("--n",S.gridSize);
   const BMAP=computeBonuses(S.buildings.map(b=>({id:b.id,type:b.type,r:b.r,c:b.c})));
-  const selDef=UI.selected?BUILDINGS[UI.selected]:null;
-  // preview bonus si on survole une case vide avec un bâtiment sélectionné
-  let prevMap=null;
-  if(selDef && UI.hover){
-    const [hr,hc]=UI.hover.split(",").map(Number);
-    if(!at(hr,hc)){
-      const tmp=S.buildings.map(b=>({id:b.id,type:b.type,r:b.r,c:b.c}));
-      tmp.push({id:"_p",type:UI.selected,r:hr,c:hc});
-      prevMap=computeBonuses(tmp);
-    }
-  }
   let html="";
   for(let r=0;r<S.gridSize;r++) for(let c=0;c<S.gridSize;c++){
     const b=at(r,c), key=r+","+c;
@@ -784,22 +775,7 @@ function renderGrid(){
         ${stat}<span class="ms bicon">${d.icon}</span>
         <span class="bname">${d.name}</span>${mtag}</div>`;
     } else {
-      const cls=["cell","empty"];
-      let extra="";
-      if(selDef){
-        const tierOk=selDef.tier<=S.tierUnlocked;
-        if(tierOk && canAfford(selDef.cost)) cls.push("ok");
-        else cls.push("bad");
-        if(prevMap && UI.hover===key){
-          const pb=prevMap["_p"];
-          let pos=false,neg=false;
-          for(const rk in (selDef.produce||{})){
-            const mm=prodMult(pb,rk); if(mm>1.001)pos=true; if(mm<0.999)neg=true;
-          }
-          extra=` ${pos?'syn':''} ${neg?'conf':''}`;
-        }
-      }
-      html+=`<div class="${cls.join(' ')}${extra}" data-c="${key}"></div>`;
+      html+=`<div class="cell empty" data-c="${key}"></div>`;
     }
   }
   if(html!==_gridHTML){ g.innerHTML=html; _gridHTML=html; }
@@ -850,9 +826,12 @@ function renderBuildDetail(type){
   const d=BUILDINGS[type];
   const locked=d.tier>S.tierUnlocked;
   const cant=!locked && !canAfford(d.cost);
+  const pc=UI.cell;
   let h=`<div class="dtl">
-    <button class="back" data-act="back"><span class="ms">arrow_back</span>Bâtiments</button>
-    <h3><span class="ms">${d.icon}</span>${d.name}<span class="pill">Tier ${d.tier}</span></h3>
+    <div class="sheet-h">
+      <button class="back" data-act="cancel"><span class="ms">arrow_back</span></button>
+      <h3><span class="ms">${d.icon}</span>${d.name}<span class="pill">Tier ${d.tier}</span></h3>
+    </div>
     <p class="desc">${d.desc}</p>`;
   if(locked){
     h+=`<div class="build-cta warn"><span class="ms">lock</span>
@@ -860,11 +839,10 @@ function renderBuildDetail(type){
       d.tier===2?"le <b>Centre-ville</b>":"le <b>Hub industriel</b>"}.</span></div>`;
   } else if(cant){
     h+=`<div class="build-cta warn"><span class="ms">error</span>
-      <span>Ressources insuffisantes — il manque les ressources en <b>rouge</b> ci-dessous.</span></div>`;
+      <span>Ressources insuffisantes — il manque les ressources en <b>rouge</b>.</span></div>`;
   } else {
-    h+=`<div class="build-cta"><span class="ms">touch_app</span>
-      <span>Touchez une case <b>en surbrillance</b> sur la grille pour construire.
-      Survolez/maintenez une case pour prévisualiser les bonus de voisinage.</span></div>`;
+    h+=`<div class="build-cta"><span class="ms">place_item</span>
+      <span>Construire ici${pc?` (case ${pc.r+1},${pc.c+1})`:""} ?</span></div>`;
   }
   h+=ioLine(d.cost,"cost")+ioLine(d.consume,"cons")+ioLine(d.produce,"prod");
   const rules=ADJACENCY[type]||[];
@@ -885,16 +863,12 @@ function renderBuildDetail(type){
       BUILDINGS[c.mid].name} – ${BUILDINGS[c.c].name} → +${c.pct}% ${rname(c.res)}</div>`);
     h+=`</div>`;
   }
+  h+=`<div class="row-btn">
+    <button class="btn" data-act="cancel"><span class="ms">close</span>Annuler</button>
+    <button class="btn primary" data-act="build" ${(locked||cant)?"disabled":""}>
+      <span class="ms">construction</span>Construire</button>
+  </div>`;
   return h+`</div>`;
-}
-function renderInfoTab(){
-  if(UI.inspect){
-    const b=S.buildings.find(x=>x.id===UI.inspect);
-    if(b) return renderInspect(b);
-  }
-  if(UI.selected) return renderBuildDetail(UI.selected);
-  return `<p class="empty-note"><span class="ms" style="font-size:34px;color:var(--dim)">touch_app</span><br>
-    Touchez un bâtiment dans <b>Construire</b>,<br>ou un bâtiment posé pour l'inspecter.</p>`;
 }
 function renderInspect(b){
   const d=BUILDINGS[b.type];
@@ -902,7 +876,11 @@ function renderInspect(b){
   const bo=bonus[b.id];
   const eff=b._eff||1;
   const idle=!!d.consume && !b.paused && (b._starve||0)>=STARVE_SHOW;
-  let h=`<div class="dtl"><h3><span class="ms">${d.icon}</span>${d.name}</h3>
+  let h=`<div class="dtl">
+    <div class="sheet-h">
+      <h3><span class="ms">${d.icon}</span>${d.name}</h3>
+      <button class="back" data-act="close"><span class="ms">close</span></button>
+    </div>
     <p class="desc">${d.desc}</p>`;
   h+=`<div class="kv"><span>État</span><b class="${idle?'neg':(b.paused?'':'pos')}">${
      b.paused?"En pause":(idle?"À l'arrêt (ressources)":"En activité")}</b></div>`;
@@ -937,6 +915,27 @@ function renderInspect(b){
   </div></div>`;
   return h;
 }
+function renderSheet(){
+  const sh=$("#sheet"), body=$("#sheetBody");
+  if(!UI.sheet){ sh.classList.add("hidden"); return; }
+  if(UI.sheet==="palette"){
+    body.innerHTML=`<div class="sheet-h">
+      <h3><span class="ms">construction</span>Construire</h3>
+      <button class="back" data-act="close"><span class="ms">close</span></button>
+    </div>`+renderBuildTab();
+  } else if(UI.sheet==="detail" && UI.selected){
+    body.innerHTML=renderBuildDetail(UI.selected);
+  } else if(UI.sheet==="inspect"){
+    const b=S.buildings.find(x=>x.id===UI.inspect);
+    body.innerHTML=b?renderInspect(b):"";
+    if(!b){ UI.sheet=null; sh.classList.add("hidden"); return; }
+  }
+  sh.classList.remove("hidden");
+}
+function closeSheet(){
+  UI.sheet=null; UI.selected=null; UI.inspect=null; UI.cell=null;
+  $("#sheet").classList.add("hidden"); renderGrid();
+}
 function renderGoalsTab(){
   let h=`<div class="sec-title">Parcours commun</div>`;
   OBJ_COMMON.forEach((o,i)=>{
@@ -965,29 +964,7 @@ function renderLogTab(){
   if(!S.logs.length) return `<p class="empty-note">Aucune activité pour l'instant.</p>`;
   return S.logs.map(l=>`<div class="logline ${l.k}"><span class="t">${l.t}</span> ${l.m}</div>`).join("");
 }
-function renderHarvest(){
-  const el=$("#harvest");
-  let h=["bois","pierre","nourriture","eau"].map(k=>{
-    const R=RESOURCES[k], pct=Math.round(100*S.reserve[k]/RESERVE_MAX[k]);
-    return `<button data-h="${k}"><span class="ms">${R.icon}</span>
-      <small>${R.name}</small><span class="rsv">réserve ${pct}%</span></button>`;
-  }).join("");
-  h+=`<button class="sos" data-sos="1" ${S.sosCD>0?'disabled':''}>
-      <span class="ms">sos</span><small>Secours</small>
-      <span class="rsv">${S.sosCD>0?S.sosCD+'s':'prêt'}</span></button>`;
-  el.innerHTML=h;
-}
-function renderPanel(){
-  const body=$("#panelBody");
-  document.querySelectorAll(".tab").forEach(t=>
-    t.classList.toggle("active",t.dataset.tab===UI.tab));
-  if(UI.tab==="build") body.innerHTML=renderBuildTab();
-  else if(UI.tab==="info") body.innerHTML=renderInfoTab();
-  else if(UI.tab==="goals") body.innerHTML=renderGoalsTab();
-  else body.innerHTML=renderLogTab();
-}
-/* dimensionne la grille pour qu'elle TIENNE toujours dans son cadre
-   (sinon elle déborde sur l'objectif et la récolte sur petit écran)   */
+/* dimensionne la grille pour qu'elle TIENNE toujours dans son cadre */
 function fitGrid(){
   const wrap=$("#gridWrap"), g=$("#grid"); if(!wrap||!g) return;
   const n=S.gridSize;
@@ -1002,9 +979,14 @@ function fitGrid(){
   g.style.setProperty("--cell", cell+"px");
 }
 function render(){
-  renderHeader(); renderResources(); renderObjStrip();
-  renderGrid(); renderHarvest(); renderPanel();
+  renderResHeader(); renderGrid(); renderSheet();
+  maybePromptSpec();
   requestAnimationFrame(fitGrid);
+}
+function maybePromptSpec(){
+  if(S.tierUnlocked>=2 && !S.spec && !UI.specPrompted){
+    UI.specPrompted=true; showSpec();
+  }
 }
 
 /* ===================== MODALS ===================== */
@@ -1022,19 +1004,38 @@ function showWin(){
   $("#modal").classList.remove("hidden");
 }
 function openMenu(){
+  let spec="";
+  if(S.tierUnlocked>=2 && !S.spec){
+    spec=`<div class="row-btn"><button class="btn primary" onclick="showSpec()">
+      <span class="ms">hub</span>Choisir une spécialisation</button></div>`;
+  }
   $("#modalBody").innerHTML=`
-    <h2><span class="ms">settings</span>Menu</h2>
-    <p>Sauvegarde automatique active (localStorage). La progression hors-ligne
-       est simulée, limitée à ${OFFLINE_CAP}s.</p>
+    <div class="sheet-h"><h2><span class="ms">settings</span>Menu</h2>
+      <button class="back" onclick="closeModal()"><span class="ms">close</span></button></div>
+    ${spec}
+    <div class="sec-title">Objectifs</div>${renderGoalsTab()}
+    <div class="sec-title">Journal</div>${renderLogTab()}
     <div class="row-btn">
       <button class="btn primary" onclick="saveGame();toast('Partie sauvegardée');closeModal()">
         <span class="ms">save</span>Sauvegarder</button>
-      <button class="btn" onclick="closeModal()">Fermer</button>
-    </div>
-    <div class="row-btn">
       <button class="btn danger" onclick="resetGame()">
-        <span class="ms">restart_alt</span>Réinitialiser la partie</button>
+        <span class="ms">restart_alt</span>Réinitialiser</button>
     </div>`;
+  $("#modal").classList.remove("hidden");
+}
+function showSpec(){
+  let cards="";
+  for(const k in SPECS){ const sp=SPECS[k];
+    cards+=`<div class="spec-card" data-spec="${k}">
+      <h4><span class="ms">${sp.icon}</span>${sp.name}</h4>
+      <div class="mods">${sp.txt.map(([r,p])=>
+        `<span class="${p>0?'up':'dn'}">${p>0?'+':''}${p}% ${rname(r)}</span>`).join(" · ")}</div>
+    </div>`;
+  }
+  $("#modalBody").innerHTML=`
+    <h2><span class="ms">hub</span>Choisissez votre axe</h2>
+    <p>Au Tier 2, spécialisez votre économie. Ce choix oriente vos objectifs finaux.</p>
+    ${cards}`;
   $("#modal").classList.remove("hidden");
 }
 function closeModal(){ $("#modal").classList.add("hidden"); }
@@ -1060,31 +1061,36 @@ function loadGame(){
 }
 function resetGame(){
   try{ localStorage.removeItem(SAVE_KEY); }catch(e){}
-  S=freshState(); UI.selected=null; UI.inspect=null;
+  S=freshState();
+  UI.sheet=null; UI.selected=null; UI.inspect=null; UI.cell=null; UI.specPrompted=false;
+  $("#sheet").classList.add("hidden");
   closeModal(); log("Nouvelle partie","info"); render();
 }
 
 /* ===================== EVENTS ===================== */
 function bind(){
+  // grille : case vide -> menu construire ; case occupée -> infos
   $("#grid").addEventListener("click",e=>{
     const cell=e.target.closest(".cell"); if(!cell) return;
     const [r,c]=cell.dataset.c.split(",").map(Number);
     const b=at(r,c);
-    if(b){ UI.inspect=b.id; UI.selected=null; UI.tab="info"; render(); }
-    else if(UI.selected){
-      placeBuilding(UI.selected,r,c);
-      if(at(r,c)){ UI.tab="build"; renderPanel(); }   // posé : retour à la palette
-    }
-  });
-  $("#grid").addEventListener("mousemove",e=>{
-    const cell=e.target.closest(".cell"); const k=cell?cell.dataset.c:null;
-    if(k!==UI.hover){ UI.hover=k; if(UI.selected) renderGrid(); }
-  });
-  $("#grid").addEventListener("mouseleave",()=>{
-    if(UI.hover){ UI.hover=null; if(UI.selected) renderGrid(); }
+    if(b){ UI.inspect=b.id; UI.selected=null; UI.cell=null; UI.sheet="inspect"; }
+    else { UI.cell={r,c}; UI.selected=null; UI.inspect=null; UI.sheet="palette"; }
+    renderGrid(); renderSheet();
   });
 
-  $("#panelBody").addEventListener("click",e=>{
+  // contenu du bottom-sheet (palette / détail / inspection)
+  $("#sheet").addEventListener("click",e=>{
+    if(e.target.id==="sheet"){ closeSheet(); return; }   // tap hors carte
+    if(e.target.closest('[data-act="close"]')){ closeSheet(); return; }
+    if(e.target.closest('[data-act="cancel"]')){
+      UI.selected=null; UI.sheet="palette"; renderSheet(); return;
+    }
+    if(e.target.closest('[data-act="build"]')){
+      const t=UI.selected, pc=UI.cell;
+      if(t && pc){ placeBuilding(t,pc.r,pc.c); if(at(pc.r,pc.c)) closeSheet(); }
+      return;
+    }
     const bc=e.target.closest("[data-build]");
     if(bc){
       if(bc.dataset.locked){
@@ -1092,39 +1098,39 @@ function bind(){
         toast(`Verrouillé — construisez ${d.tier===2?"le Centre-ville":"le Hub industriel"}`,true);
         return;
       }
-      const k=bc.dataset.build;
-      UI.selected = UI.selected===k ? null : k;
-      UI.inspect=null;
-      UI.tab = UI.selected ? "info" : "build";
-      render(); return;
+      UI.selected=bc.dataset.build; UI.sheet="detail"; renderSheet(); return;
     }
-    if(e.target.closest('[data-act="back"]')){ UI.tab="build"; render(); return; }
     const sp=e.target.closest("[data-spec]");
     if(sp){ chooseSpec(sp.dataset.spec); return; }
     if(e.target.closest("#pauseBtn")){
-      const b=S.buildings.find(x=>x.id===UI.inspect); if(b) togglePause(b); return;
+      const b=S.buildings.find(x=>x.id===UI.inspect); if(b){ togglePause(b); renderSheet(); } return;
     }
     if(e.target.closest("#destroyBtn")){
-      const b=S.buildings.find(x=>x.id===UI.inspect); if(b) destroyBuilding(b); return;
+      const b=S.buildings.find(x=>x.id===UI.inspect); if(b){ destroyBuilding(b); closeSheet(); } return;
     }
   });
 
-  $("#tabs").addEventListener("click",e=>{
-    const t=e.target.closest(".tab"); if(!t) return;
-    UI.tab=t.dataset.tab; renderPanel();
+  $("#hdrToggle").addEventListener("click",()=>{
+    S.headerOpen=!S.headerOpen; renderResHeader();
   });
-
-  $("#harvest").addEventListener("click",e=>{
+  $("#hdrClose").addEventListener("click",()=>{
+    S.headerOpen=false; renderResHeader();
+  });
+  $("#resourceBar").addEventListener("click",e=>{
     const h=e.target.closest("[data-h]"); if(h){ harvest(h.dataset.h); return; }
     if(e.target.closest("[data-sos]")) sos();
   });
 
   $("#expandBtn").addEventListener("click",tryExpand);
   $("#menuBtn").addEventListener("click",openMenu);
-  $("#modal").addEventListener("click",e=>{ if(e.target.id==="modal") closeModal(); });
+  $("#modal").addEventListener("click",e=>{
+    const sp=e.target.closest("[data-spec]");
+    if(sp){ chooseSpec(sp.dataset.spec); return; }
+    if(e.target.id==="modal" && S.spec) closeModal();
+  });
 
   document.addEventListener("keydown",e=>{
-    if(e.key==="Escape"){ UI.selected=null; UI.inspect=null; closeModal(); render(); }
+    if(e.key==="Escape"){ closeSheet(); if(S.spec) closeModal(); }
   });
 
   window.addEventListener("beforeunload",saveGame);
@@ -1140,6 +1146,7 @@ function bind(){
 window.closeModal=closeModal;
 window.resetGame=resetGame;
 window.saveGame=saveGame;
+window.showSpec=showSpec;
 window.toast=toast;
 
 /* ===================== BOOT ===================== */

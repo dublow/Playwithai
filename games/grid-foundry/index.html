@@ -10,48 +10,34 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-25..0&family=Inter:wght@400;500;600;700&display=swap" />
-<link rel="stylesheet" href="style.css?v=7" />
+<link rel="stylesheet" href="style.css?v=8" />
 </head>
 <body>
 <div id="app">
 
-  <header id="topbar">
-    <div class="brand">
-      <span class="ms logo">precision_manufacturing</span>
-      <div class="brand-txt">
-        <strong>GRID&nbsp;FOUNDRY</strong>
-        <span id="tierLabel">Tier 1 · 3×3</span>
+  <div id="gridWrap">
+    <div id="grid" class="grid"></div>
+  </div>
+
+  <button id="hdrToggle" class="fab" title="Ressources" aria-label="Ressources">
+    <span class="ms">inventory_2</span>
+  </button>
+
+  <header id="resHeader" class="res-header">
+    <div class="rh-top">
+      <div id="resObjective" class="rh-obj"></div>
+      <div class="rh-act">
+        <button id="expandBtn" class="btn expand hidden"></button>
+        <button id="menuBtn" class="btn ghost icon" title="Menu"><span class="ms">settings</span></button>
+        <button id="hdrClose" class="btn ghost icon" title="Fermer"><span class="ms">close</span></button>
       </div>
     </div>
-
-    <div class="top-actions">
-      <button id="expandBtn" class="btn expand hidden"></button>
-      <button id="menuBtn" class="btn ghost icon" title="Menu / Sauvegarde">
-        <span class="ms">settings</span>
-      </button>
-    </div>
+    <div id="resourceBar" class="resbar" aria-label="Ressources"></div>
   </header>
 
-  <main id="main">
-    <section id="gridZone">
-      <div id="resourceBar" class="resbar" aria-label="Ressources"></div>
-      <div id="objStrip" class="obj-strip"></div>
-      <div id="gridWrap">
-        <div id="grid" class="grid"></div>
-      </div>
-      <div id="harvest" class="harvest"></div>
-    </section>
-
-    <aside id="panel">
-      <nav id="tabs" class="tabs">
-        <button class="tab active" data-tab="build"><span class="ms">construction</span><span>Construire</span></button>
-        <button class="tab" data-tab="info"><span class="ms">info</span><span>Détails</span></button>
-        <button class="tab" data-tab="goals"><span class="ms">flag</span><span>Objectifs</span></button>
-        <button class="tab" data-tab="log"><span class="ms">terminal</span><span>Journal</span></button>
-      </nav>
-      <div id="panelBody" class="panel-body"></div>
-    </aside>
-  </main>
+  <div id="sheet" class="sheet hidden">
+    <div class="sheet-card"><div id="sheetBody"></div></div>
+  </div>
 
   <div id="toast" class="toast hidden"></div>
 
@@ -62,13 +48,6 @@
   </div>
 
 </div>
-
-<div id="rotate">
-  <span class="ms rot-ic">screen_rotation</span>
-  <h2>Tournez votre appareil</h2>
-  <p>GRID FOUNDRY se joue en mode <b>paysage</b> — plus d'espace, un affichage clair et lisible.</p>
-</div>
-
-<script src="script.js?v=7"></script>
+<script src="script.js?v=8"></script>
 </body>
 </html>
