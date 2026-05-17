@@ -48,16 +48,16 @@ const RESOURCES = {
 const BUILDINGS = {
   scierie:    {name:"Scierie",       icon:"forest",                tier:1, tag:"t1",
     desc:"Exploite la forêt locale et produit du bois en continu.",
-    cost:{bois:10,pierre:5}, produce:{bois:1}},
+    cost:{bois:10,pierre:5}, produce:{bois:2}},
   carriere:   {name:"Carrière",      icon:"terrain",               tier:1, tag:"t1",
     desc:"Extrait la pierre du gisement local.",
-    cost:{bois:10,pierre:5}, produce:{pierre:1}},
+    cost:{bois:10,pierre:5}, produce:{pierre:2}},
   puits:      {name:"Puits",         icon:"water_drop",            tier:1, tag:"t1",
     desc:"Puise l'eau d'une source locale.",
-    cost:{pierre:8}, produce:{eau:1}},
+    cost:{pierre:8}, produce:{eau:2}},
   ferme:      {name:"Ferme",         icon:"agriculture",           tier:1, tag:"t1",
     desc:"Cultive la nourriture. Adore la proximité de l'eau.",
-    cost:{bois:15,eau:5}, produce:{nourriture:1}},
+    cost:{bois:15,eau:5}, produce:{nourriture:2}},
   fourneau:   {name:"Fourneau",      icon:"local_fire_department", tier:1, tag:"t1",
     desc:"Transforme le bois en charbon.",
     cost:{pierre:20,bois:10}, consume:{bois:2}, produce:{charbon:1}},
@@ -355,7 +355,7 @@ const EXPAND = {
 };
 
 /* rendements décroissants par exemplaire d'un même type */
-const EFF = [1, 0.85, 0.70, 0.55, 0.40];
+const EFF = [1, 0.92, 0.84, 0.76, 0.68];
 const effFactor = i => EFF[Math.min(i, EFF.length - 1)];
 
 /* caps voisinage */
@@ -411,7 +411,7 @@ let S;
 function freshState(){
   return {
     gridSize:3, tierUnlocked:1, spec:null,
-    stock:{bois:40, pierre:20, eau:8}, total:{}, won:false,
+    stock:{bois:60, pierre:40, eau:20}, total:{}, won:false,
     buildings:[], nextOrder:1,
     objIdx:0, axisIdx:0, badges:{},
     logs:[], lastSave:Date.now(), headerOpen:true,
