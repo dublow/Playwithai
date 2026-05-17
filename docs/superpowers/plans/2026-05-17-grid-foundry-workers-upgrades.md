@@ -306,6 +306,33 @@ Remplacer la Cantine dans `"BUILDINGS"` :
 
 `batisseur: 0.25` = 1 bâtisseur tous les 4 ticks. `equipe: 0.083` ≈ 1 équipier tous les 12 ticks. Ces fractions s'accumulent dans le stock et produisent des unités entières.
 
+- [ ] **Step 3b : Ajouter produce aux bâtiments civiques**
+
+Dans `"BUILDINGS"`, ajouter une clé `"produce"` à `centreville` et `hub` :
+
+```json
+"centreville": {
+  "name": "Centre-ville",
+  "icon": "location_city",
+  "tier": 1,
+  "tag": "civic",
+  "desc": "Cœur de la colonie. Ouvre l'Ère Industrielle et l'expansion 4×4. Génère de l'équipe.",
+  "cost": { "bois": 50, "pierre": 40, "brique": 20 },
+  "produce": { "equipe": 0.033 }
+},
+"hub": {
+  "name": "Hub industriel",
+  "icon": "hub",
+  "tier": 2,
+  "tag": "civic",
+  "desc": "Ouvre l'Ère Avancée et l'expansion 5×5. Génère de l'équipe plus rapidement.",
+  "cost": { "metal": 40, "outil": 25, "energie": 30, "brique": 20 },
+  "produce": { "equipe": 0.05 }
+}
+```
+
+Note : `equipe: 0.033` ≈ 1 équipier/30s, `equipe: 0.05` ≈ 1/20s. Inférieurs à la Cantine (0.083) — supplément, pas substitut. Le coût `ouvrier` est remplacé par `batisseur` implicitement (la Cantine produit des batisseurs, le Centre-ville en coûte un à la construction via `placeBuilding()`).
+
 - [ ] **Step 4 : Ajouter les coûts d'upgrade par bâtiment**
 
 Ajouter une clé `"upgrades"` dans chaque bâtiment. Exemples représentatifs — appliquer le même patron à tous :
@@ -1108,6 +1135,46 @@ function crewHTML(b){
 }
 ```
 
+- [ ] **Step 2.5 : Mettre à jour renderGrid() — états visuels des tuiles**
+
+Ajouter avant `renderGrid()` :
+
+```js
+function crewStateClass(b){
+  if(b.paused) return "s-pause";
+  const opt = optimalCrew(b);
+  if(opt === 0 || (b.crew||0) === 0) return "s-none";
+  const ratio = (b.crew||0) / opt;
+  if(ratio >= 1.0) return "s-full";
+  if(ratio >= 0.5) return "s-mid";
+  return "s-low";
+}
+```
+
+Dans `renderGrid()`, dans le bloc qui génère le HTML d'une cellule remplie (chercher la div `.cell.filled`), remplacer par :
+
+```js
+const sc   = crewStateClass(b);
+const lvl  = b.level || 1;
+const stars = "★".repeat(lvl);
+const opt  = optimalCrew(b);
+const cur  = b.crew || 0;
+let prodTag = "";
+if(def.produce && !b.paused && cur > 0){
+  const pf = prodFactor(b);
+  const mainRes = Object.keys(def.produce)[0];
+  const rate = (def.produce[mainRes] * pf * RATE).toFixed(1);
+  prodTag = `<span class="prod-tag">+${rate}/s</span>`;
+}
+html += `<div class="cell filled ${sc}" data-c="${key}">
+  <span class="lvl">${stars}</span>
+  <span class="crew-tag">${cur}/${opt}</span>
+  <span class="ms bicon">${def.icon}</span>
+  <span class="bname">${def.name}</span>
+  ${prodTag}
+</div>`;
+```
+
 - [ ] **Step 3 : Afficher batisseurs et equipe dans le header**
 
 Dans la fonction qui rend le compteur de ressources (chercher où `S.stock` est affiché), ajouter l'affichage des workers :
@@ -1144,6 +1211,36 @@ git commit -m "feat: crew assignment UI (add/remove crew per building, workers b
 À la fin de style.css :
 
 ```css
+/* ── Infos tuile : niveau + équipe + production ── */
+.cell .lvl      { position:absolute; top:3px; left:4px; font-size:9px; color:var(--gold); font-weight:700; }
+.cell .crew-tag { position:absolute; top:3px; right:4px; font-size:9px; color:var(--muted); font-weight:600; font-variant-numeric:tabular-nums; }
+.cell .prod-tag { position:absolute; bottom:3px; font-size:9px; font-weight:600; color:var(--good); font-variant-numeric:tabular-nums; }
+
+/* ── États tuile selon remplissage crew ── */
+/* 100% — vert */
+.cell.s-full { border-color:#2d8a5e; }
+.cell.s-full .ms.bicon { color:var(--good); }
+.cell.s-full .crew-tag { color:var(--good); }
+
+/* 50–99% — bleu (couleur par défaut) */
+.cell.s-mid { border-color:var(--acc2); }
+.cell.s-mid .ms.bicon { color:var(--acc2); }
+
+/* 1–49% — orange */
+.cell.s-low { border-color:#c07820; }
+.cell.s-low .ms.bicon  { color:#ffb74d; }
+.cell.s-low .crew-tag  { color:#ffb74d; }
+.cell.s-low .prod-tag  { color:#ffb74d; }
+
+/* 0% crew — rouge pulsé (reprend la classe .idle existante) */
+.cell.s-none { border-color:rgba(255,93,93,.45); animation:idle 1.6s infinite; }
+.cell.s-none .ms.bicon { color:rgba(255,93,93,.6); }
+.cell.s-none .crew-tag { color:var(--warn); }
+.cell.s-none .prod-tag { display:none; }
+
+/* Pause explicite — désaturé (reprend .paused existant) */
+/* .cell.s-pause déjà géré par .cell.paused { filter:grayscale(.7) brightness(.7) } */
+
 /* ── Workers bar ── */
 .workers-bar {
   display: flex;

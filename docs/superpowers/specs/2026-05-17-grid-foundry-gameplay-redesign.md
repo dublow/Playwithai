@@ -92,6 +92,30 @@ Les bonus d'adjacence sont supprimés. Le placement sur la grille est libre. La 
 
 ---
 
+## Mécanique 4 — Bâtiments civiques comme producteurs d'équipe
+
+### Problème initial
+
+Sans production permanente, les bâtiments civiques sont construits pour débloquer le tier puis inutiles. Dans le redesign avec équipe obligatoire, affecter 5-10 équipiers à un bâtiment sans retour serait absurde.
+
+### Rôle permanent
+
+| Bâtiment | Débloque | Production d'équipe (N1) |
+|---|---|---|
+| Centre-ville | Tier 2 + grille 4×4 | +0.033 équipe/s (1 toutes les 30s) |
+| Hub industriel | Tier 3 + grille 5×5 | +0.05 équipe/s (1 toutes les 20s) |
+
+La Cantine reste la source principale (0.083 équipe/s). Les bâtiments civiques sont des producteurs secondaires — l'investissement en équipe (5-10 membres) se rembourse progressivement par la génération d'équipiers supplémentaires.
+
+### Rationale
+
+- Retirer l'équipe d'un bâtiment civique a un coût réel (perte de production d'équipiers)
+- La progression T1 → T2 → T3 génère naturellement plus d'équipe, finançant l'expansion
+- Cohérent thématiquement : le Centre-ville organise la population et génère de nouveaux habitants
+- La pression crew augmente à chaque tier, les civiques compensent partiellement
+
+---
+
 ## Conséquences sur la progression
 
 ### Résolution du problème "détruire pour gagner"
