@@ -48,21 +48,68 @@ resize();
    Coins are generated automatically along the run path and as arcs
    over every pit and enemy, so a well-timed jump scoops them up.
 ----------------------------------------------------------------- */
+/* 8 worlds, each its own universe (theme = index into THEMES).
+   Order: Forêt → Savane → Désert → Feu → Jungle → Nuit → Espace → Pôle Nord.
+   Levels grow longer and busier as you advance. */
 const LEVELS = [
-  {
-    width: 190,
-    start: 3,
-    flag: 186,
+  { theme: 0, width: 180, start: 3, flag: 176,
+    ground: [[0, 34], [36, 66], [68, 100], [102, 134], [136, 180]],
+    enemies: [16, 28, 46, 58, 80, 90, 112, 124, 150, 164] },
+  { theme: 1, width: 190, start: 3, flag: 186,
     ground: [[0, 30], [32, 60], [62, 92], [94, 124], [126, 156], [158, 190]],
-    enemies: [18, 26, 44, 54, 70, 80, 100, 110, 134, 146, 168, 180],
-  },
-  {
-    width: 200,
-    start: 3,
-    flag: 196,
-    ground: [[0, 24], [26, 48], [50, 72], [74, 98], [100, 124], [126, 150], [152, 176], [178, 200]],
-    enemies: [18, 30, 40, 56, 66, 82, 92, 108, 118, 130, 144, 158, 170, 184],
-  },
+    enemies: [16, 26, 44, 54, 72, 84, 104, 116, 138, 150, 170, 180] },
+  { theme: 2, width: 195, start: 3, flag: 191,
+    ground: [[0, 28], [30, 56], [58, 86], [88, 116], [118, 146], [148, 176], [178, 195]],
+    enemies: [16, 24, 40, 50, 68, 78, 98, 108, 128, 140, 160, 170, 184] },
+  { theme: 3, width: 200, start: 3, flag: 196,
+    ground: [[0, 26], [28, 52], [54, 80], [82, 108], [110, 136], [138, 164], [166, 200]],
+    enemies: [14, 22, 38, 48, 64, 74, 92, 102, 120, 130, 150, 160, 180, 190] },
+  { theme: 4, width: 205, start: 3, flag: 201,
+    ground: [[0, 24], [26, 50], [52, 76], [78, 104], [106, 132], [134, 160], [162, 188], [190, 205]],
+    enemies: [14, 20, 36, 46, 62, 72, 90, 100, 118, 128, 146, 156, 176, 186, 196] },
+  { theme: 5, width: 210, start: 3, flag: 206,
+    ground: [[0, 24], [26, 48], [50, 74], [76, 100], [102, 126], [128, 152], [154, 178], [180, 210]],
+    enemies: [14, 20, 36, 44, 60, 70, 88, 96, 114, 124, 140, 150, 166, 176, 194] },
+  { theme: 6, width: 215, start: 3, flag: 211,
+    ground: [[0, 22], [24, 46], [48, 70], [72, 96], [98, 122], [124, 148], [150, 174], [176, 200], [202, 215]],
+    enemies: [13, 19, 34, 42, 58, 66, 84, 92, 110, 118, 136, 146, 162, 172, 188, 196] },
+  { theme: 7, width: 220, start: 3, flag: 216,
+    ground: [[0, 22], [24, 44], [46, 68], [70, 92], [94, 116], [118, 140], [142, 164], [166, 190], [192, 220]],
+    enemies: [12, 18, 32, 40, 54, 64, 80, 90, 106, 116, 132, 142, 158, 168, 184, 196, 208] },
+];
+
+/* ---------------- Universes / biomes ----------------
+   Every world is its own universe: each level pins one biome (level.theme).
+   When you reach the next world the previous biome crossfades into the new
+   one over WORLD_FADE seconds — sky and ground colours are interpolated and
+   the two sceneries are alpha-blended, so entering a world feels seamless.
+   game.time keeps running on the menu too, so the background stays alive
+   before the run even starts. */
+const THEMES = [
+  { id: "forest", name: "Forêt",     emoji: "🌲",
+    sky: ["#6db3f2", "#bfe3c0"],
+    ground: "#3aa53a", groundEdge: "#2f8a2f", dirt: "#8a5a2b", dirtTop: "#6f4420" },
+  { id: "savanna", name: "Savane",   emoji: "🦒",
+    sky: ["#f0a64a", "#ffd98a"],
+    ground: "#c9a24a", groundEdge: "#a9842f", dirt: "#8a6a2b", dirtTop: "#6f5420" },
+  { id: "desert",  name: "Désert",   emoji: "🏜️",
+    sky: ["#f6b352", "#ffe6b0"],
+    ground: "#e0c068", groundEdge: "#caa84f", dirt: "#c8a24a", dirtTop: "#b08a35" },
+  { id: "fire",    name: "Feu",      emoji: "🔥",
+    sky: ["#2a0707", "#b5371f"],
+    ground: "#542a1a", groundEdge: "#3a1810", dirt: "#2a1208", dirtTop: "#ff5e1f" },
+  { id: "jungle",  name: "Jungle",   emoji: "🌴",
+    sky: ["#2f9e6e", "#9ee0b4"],
+    ground: "#2e7d32", groundEdge: "#1f5e22", dirt: "#5a3a17", dirtTop: "#432b10" },
+  { id: "night",   name: "Nuit",     emoji: "🌙",
+    sky: ["#0b1640", "#2a2f6b"],
+    ground: "#234d23", groundEdge: "#173417", dirt: "#4a3520", dirtTop: "#34250f" },
+  { id: "space",   name: "Espace",   emoji: "🚀",
+    sky: ["#050314", "#1a0a3a"],
+    ground: "#4a4a6a", groundEdge: "#34344f", dirt: "#2a2a40", dirtTop: "#6a6a8a" },
+  { id: "pole",    name: "Pôle Nord", emoji: "❄️",
+    sky: ["#8fc7e8", "#e8f6ff"],
+    ground: "#eaf4fb", groundEdge: "#cfe6f2", dirt: "#bcd6e4", dirtTop: "#d8ecf6" },
 ];
 
 /* Tile codes: 0 empty, 1 ground (no other solids in this auto-runner) */
@@ -127,6 +174,9 @@ const game = {
   cameraX: 0,
   time: 0,
   particles: [],
+  theme: THEMES[0],
+  themePrev: THEMES[0],
+  themeFade: 0,
 };
 
 const player = {
@@ -146,6 +196,10 @@ const player = {
 function loadLevel(i) {
   game.levelIndex = i;
   game.level = buildLevel(LEVELS[i]);
+  const next = THEMES[LEVELS[i].theme] || THEMES[0];
+  game.themePrev = game.theme;
+  game.theme = next;
+  game.themeFade = game.themePrev === next ? 0 : WORLD_FADE;
   respawn(true);
 }
 
@@ -482,36 +536,39 @@ function updateParticles(dt) {
   }
 }
 
+const WORLD_FADE = 1.2;      // seconds to crossfade when entering a world
+
+let themeView = { a: THEMES[0], b: THEMES[0], t: 1 };
+
+function rgb(c) {
+  c = c.replace("#", "");
+  return [parseInt(c.slice(0, 2), 16), parseInt(c.slice(2, 4), 16),
+          parseInt(c.slice(4, 6), 16)];
+}
+function mix(a, b, t) {
+  const A = rgb(a), B = rgb(b);
+  return `rgb(${Math.round(A[0] + (B[0] - A[0]) * t)},` +
+         `${Math.round(A[1] + (B[1] - A[1]) * t)},` +
+         `${Math.round(A[2] + (B[2] - A[2]) * t)})`;
+}
+function rnd(i) { const x = Math.sin(i * 127.1 + i * i * 0.0137) * 43758.5; return x - Math.floor(x); }
+// stable starfield (used by night & space)
+const STARS = Array.from({ length: 90 }, (_, i) => ({
+  x: rnd(i), y: rnd(i + 7) * 0.62, r: rnd(i + 13) * 1.6 + 0.6, p: rnd(i + 19) * 6.28,
+}));
+
 /* ---------------- Rendering ---------------- */
-function drawBackground() {
-  const g = ctx.createLinearGradient(0, 0, 0, cssH);
-  g.addColorStop(0, "#5c94fc");
-  g.addColorStop(1, "#9fd0ff");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, cssW, cssH);
-
-  // sun
-  ctx.fillStyle = "rgba(255,236,150,0.9)";
-  ctx.beginPath();
-  ctx.arc(cssW - 70, 70, 38, 0, Math.PI * 2);
-  ctx.fill();
-
-  // parallax hills
-  const off = game.cameraX * 0.3 * scale;
-  ctx.fillStyle = "#4fae4f";
-  for (let i = -1; i < 12; i++) {
-    const hx = (i * 260 - (off % 260)) ;
+function biomeScroll(f) {
+  return (game.cameraX + game.time * 34) * f * scale;
+}
+function mounds(color, baseY, r, spacing, f) {
+  ctx.fillStyle = color;
+  const sp = spacing * scale;
+  const off = biomeScroll(f) % sp;
+  for (let i = -1; i < cssW / sp + 2; i++) {
     ctx.beginPath();
-    ctx.arc(hx, cssH - 40 * scale, 90 * scale, Math.PI, 0);
+    ctx.arc(i * sp - off, cssH - baseY * scale, r * scale, Math.PI, 0);
     ctx.fill();
-  }
-  // clouds
-  const coff = game.cameraX * 0.15 * scale;
-  ctx.fillStyle = "rgba(255,255,255,0.85)";
-  for (let i = -1; i < 10; i++) {
-    const cx = (i * 340 - (coff % 340));
-    const cy = (60 + (i % 3) * 50) * scale;
-    cloud(cx, cy, 26 * scale);
   }
 }
 function cloud(x, y, r) {
@@ -522,11 +579,225 @@ function cloud(x, y, r) {
   ctx.arc(x + r * 0.4, y - r * 0.6, r * 0.7, 0, Math.PI * 2);
   ctx.fill();
 }
+function clouds(color, spacing, f) {
+  ctx.fillStyle = color;
+  const sp = spacing * scale;
+  const off = biomeScroll(f) % sp;
+  for (let i = -1; i < cssW / sp + 2; i++) {
+    cloud(i * sp - off, (50 + (i % 3) * 46) * scale, 26 * scale);
+  }
+}
+function trees(trunk, leaf, kind, spacing, f, baseY) {
+  const sp = spacing * scale;
+  const off = biomeScroll(f) % sp;
+  for (let i = -1; i < cssW / sp + 2; i++) {
+    const x = i * sp - off;
+    const gy = cssH - baseY * scale;
+    if (kind === "pine") {
+      ctx.fillStyle = trunk;
+      ctx.fillRect(x - 4 * scale, gy - 18 * scale, 8 * scale, 22 * scale);
+      ctx.fillStyle = leaf;
+      for (let k = 0; k < 3; k++) {
+        ctx.beginPath();
+        ctx.moveTo(x - (26 - k * 6) * scale, gy - (16 + k * 14) * scale);
+        ctx.lineTo(x + (26 - k * 6) * scale, gy - (16 + k * 14) * scale);
+        ctx.lineTo(x, gy - (40 + k * 14) * scale);
+        ctx.closePath();
+        ctx.fill();
+      }
+    } else if (kind === "acacia") {
+      ctx.fillStyle = trunk;
+      ctx.fillRect(x - 3 * scale, gy - 34 * scale, 6 * scale, 36 * scale);
+      ctx.fillStyle = leaf;
+      ctx.beginPath();
+      ctx.ellipse(x, gy - 40 * scale, 34 * scale, 12 * scale, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (kind === "palm") {
+      ctx.fillStyle = trunk;
+      ctx.fillRect(x - 4 * scale, gy - 46 * scale, 8 * scale, 50 * scale);
+      ctx.fillStyle = leaf;
+      for (let a = -2; a <= 2; a++) {
+        ctx.beginPath();
+        ctx.ellipse(x + a * 16 * scale, gy - 48 * scale - Math.abs(a) * 3 * scale,
+                    22 * scale, 9 * scale, a * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (kind === "cactus") {
+      ctx.fillStyle = leaf;
+      ctx.fillRect(x - 5 * scale, gy - 40 * scale, 10 * scale, 42 * scale);
+      ctx.fillRect(x - 16 * scale, gy - 30 * scale, 8 * scale, 6 * scale);
+      ctx.fillRect(x - 16 * scale, gy - 30 * scale, 6 * scale, 18 * scale);
+      ctx.fillRect(x + 8 * scale, gy - 24 * scale, 8 * scale, 6 * scale);
+      ctx.fillRect(x + 10 * scale, gy - 24 * scale, 6 * scale, 14 * scale);
+    }
+  }
+}
+function starfield(twinkle) {
+  const base = ctx.globalAlpha;
+  ctx.fillStyle = "#ffffff";
+  for (let s of STARS) {
+    const a = twinkle ? 0.5 + 0.5 * Math.sin(game.time * 3 + s.p) : 0.9;
+    ctx.globalAlpha = base * a;
+    ctx.fillRect(s.x * cssW, s.y * cssH, s.r * scale, s.r * scale);
+  }
+  ctx.globalAlpha = base;
+}
+function fallingBits(color, count, speed, sway, size) {
+  ctx.fillStyle = color;
+  for (let i = 0; i < count; i++) {
+    const bx = (rnd(i) * cssW + Math.sin(game.time * sway + i) * 14 * scale +
+               cssW) % cssW;
+    const by = ((rnd(i + 3) * cssH + game.time * speed * scale) % cssH);
+    ctx.fillRect(bx, by, size * scale, size * scale);
+  }
+}
+function risingEmbers() {
+  for (let i = 0; i < 40; i++) {
+    const ex = (rnd(i) * cssW + Math.sin(game.time * 1.4 + i) * 20 * scale + cssW) % cssW;
+    const ey = cssH - ((rnd(i + 5) * cssH + game.time * 70 * scale) % cssH);
+    ctx.fillStyle = i % 2 ? "#ffb24a" : "#ff6a2a";
+    ctx.fillRect(ex, ey, 3 * scale, 3 * scale);
+  }
+}
+
+function drawCelestial(th) {
+  if (th.id === "fire") {
+    const r = ctx.createRadialGradient(cssW * 0.5, cssH, 0, cssW * 0.5, cssH, cssH * 0.9);
+    r.addColorStop(0, "rgba(255,120,40,0.55)");
+    r.addColorStop(1, "rgba(255,120,40,0)");
+    ctx.fillStyle = r;
+    ctx.fillRect(0, 0, cssW, cssH);
+    return;
+  }
+  if (th.id === "space") return;
+  if (th.id === "night") {                                  // crescent moon
+    const mx = cssW - 80 * scale, my = 70 * scale, mr = 32 * scale;
+    ctx.fillStyle = "#f3f3d6";
+    ctx.beginPath(); ctx.arc(mx, my, mr, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = mix(th.sky[0], "#000000", 0.15);
+    ctx.beginPath(); ctx.arc(mx + 12 * scale, my - 6 * scale, mr, 0, Math.PI * 2); ctx.fill();
+    return;
+  }
+  const low = th.id === "savanna" || th.id === "desert" || th.id === "pole";
+  ctx.fillStyle = th.id === "pole" ? "rgba(255,255,255,0.85)"
+                : low ? "rgba(255,180,90,0.95)" : "rgba(255,236,150,0.9)";
+  ctx.beginPath();
+  ctx.arc(cssW - 80 * scale, (low ? 130 : 70) * scale,
+          (low ? 50 : 38) * scale, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawScenery(th, alpha) {
+  if (alpha <= 0.01) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  if (th.id === "night" || th.id === "space") starfield(th.id === "night");
+  drawCelestial(th);
+
+  switch (th.id) {
+    case "forest":
+      mounds("#3f8f4f", 38, 90, 260, 0.3);
+      trees("#5a3a17", "#2f7d39", "pine", 150, 0.55, 90);
+      clouds("rgba(255,255,255,0.85)", 340, 0.15);
+      break;
+    case "savanna":
+      mounds("#caa257", 36, 100, 300, 0.3);
+      trees("#6b4a22", "#7d8a3a", "acacia", 230, 0.5, 86);
+      ctx.strokeStyle = "rgba(60,40,20,0.6)"; ctx.lineWidth = 2 * scale;
+      for (let i = 0; i < 5; i++) {
+        const bx = (i * 240 - biomeScroll(0.12) % (240 * scale)) ;
+        const by = 90 * scale + (i % 2) * 30 * scale;
+        ctx.beginPath();
+        ctx.moveTo(bx, by); ctx.quadraticCurveTo(bx + 9 * scale, by - 7 * scale, bx + 18 * scale, by);
+        ctx.quadraticCurveTo(bx + 27 * scale, by - 7 * scale, bx + 36 * scale, by);
+        ctx.stroke();
+      }
+      break;
+    case "desert":
+      mounds("#e6cf94", 30, 70, 220, 0.3);
+      mounds("#d8bd78", 22, 60, 300, 0.45);
+      trees("#3f7d39", "#3f7d39", "cactus", 320, 0.55, 26);
+      clouds("rgba(255,255,255,0.5)", 520, 0.1);
+      break;
+    case "fire":
+      ctx.fillStyle = "#1c0c0c";
+      mounds("#1c0c0c", 30, 120, 280, 0.3);
+      ctx.strokeStyle = "#ff7a2a"; ctx.lineWidth = 3 * scale;
+      for (let i = -1; i < cssW / (280 * scale) + 2; i++) {
+        const hx = i * 280 * scale - biomeScroll(0.3) % (280 * scale);
+        ctx.beginPath();
+        ctx.moveTo(hx, cssH - 30 * scale);
+        ctx.lineTo(hx + 10 * scale, cssH - 80 * scale);
+        ctx.lineTo(hx + 24 * scale, cssH - 40 * scale);
+        ctx.stroke();
+      }
+      risingEmbers();
+      break;
+    case "jungle":
+      mounds("#1f6e3a", 44, 110, 240, 0.25);
+      mounds("#2e8a45", 30, 90, 200, 0.4);
+      trees("#5a3a17", "#1f7d3a", "palm", 170, 0.55, 90);
+      fallingBits("rgba(120,200,120,0.7)", 26, 26, 0.7, 5);
+      break;
+    case "night":
+      mounds("#16261a", 40, 95, 270, 0.3);
+      break;
+    case "space": {
+      ctx.fillStyle = "#6a4fb0";
+      ctx.beginPath();
+      ctx.arc(cssW * 0.22, 90 * scale, 34 * scale, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#8a6fd0";
+      ctx.beginPath();
+      ctx.arc(cssW * 0.22 - 10 * scale, 82 * scale, 34 * scale, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#d98a3a";
+      ctx.beginPath();
+      ctx.arc(cssW - 70 * scale, 150 * scale, 18 * scale, 0, Math.PI * 2); ctx.fill();
+      const shoot = (game.time * 0.5) % 1;
+      ctx.strokeStyle = "rgba(255,255,255,0.7)"; ctx.lineWidth = 2 * scale;
+      ctx.beginPath();
+      ctx.moveTo(shoot * cssW, shoot * cssH * 0.4);
+      ctx.lineTo(shoot * cssW + 40 * scale, shoot * cssH * 0.4 + 16 * scale);
+      ctx.stroke();
+      break;
+    }
+    case "pole":
+      ctx.fillStyle = "rgba(120,230,200,0.35)";
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        ctx.ellipse(cssW * (0.3 + i * 0.25), 70 * scale,
+                    120 * scale, 26 * scale, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      mounds("#cfe6f2", 38, 95, 260, 0.3);
+      mounds("#eaf4fb", 26, 70, 200, 0.45);
+      fallingBits("rgba(255,255,255,0.9)", 40, 36, 1.0, 4);
+      break;
+  }
+  ctx.restore();
+}
+
+function drawBackground() {
+  const { a, b, t } = themeView;
+  const g = ctx.createLinearGradient(0, 0, 0, cssH);
+  g.addColorStop(0, mix(a.sky[0], b.sky[0], t));
+  g.addColorStop(1, mix(a.sky[1], b.sky[1], t));
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, cssW, cssH);
+
+  drawScenery(a, 1 - t);
+  drawScenery(b, t);
+}
 
 function w2s(wx) { return (wx - game.cameraX) * scale; }
 
 function drawTiles() {
   const lv = game.level;
+  const { a, b, t } = themeView;
+  const gTop = mix(a.ground, b.ground, t);
+  const gEdge = mix(a.groundEdge, b.groundEdge, t);
+  const dBody = mix(a.dirt, b.dirt, t);
+  const dTop = mix(a.dirtTop, b.dirtTop, t);
   const c0 = Math.max(0, Math.floor(game.cameraX / TILE) - 1);
   const c1 = Math.min(lv.W - 1, Math.ceil((game.cameraX + viewW) / TILE) + 1);
   for (let c = c0; c <= c1; c++) {
@@ -535,10 +806,10 @@ function drawTiles() {
       const x = w2s(c * TILE);
       const y = r * TILE * scale;
       const s = TILE * scale;
-      ctx.fillStyle = (r === 13) ? "#3aa53a" : "#8a5a2b";
+      ctx.fillStyle = (r === 13) ? gTop : dBody;
       ctx.fillRect(x, y, s + 1, s + 1);
-      if (r === 13) { ctx.fillStyle = "#2f8a2f"; ctx.fillRect(x, y + s * 0.7, s + 1, s * 0.3); }
-      else { ctx.fillStyle = "#6f4420"; ctx.fillRect(x, y, s + 1, s * 0.18); }
+      if (r === 13) { ctx.fillStyle = gEdge; ctx.fillRect(x, y + s * 0.7, s + 1, s * 0.3); }
+      else { ctx.fillStyle = dTop; ctx.fillRect(x, y, s + 1, s * 0.18); }
     }
   }
 }
@@ -675,7 +946,8 @@ function drawHUD() {
     `<span class="pill">SCORE ${String(game.score).padStart(6, "0")}</span>` +
     `<span class="pill">🪙 ${game.coins}</span>` +
     `<span class="pill">♥ ${game.lives}</span>` +
-    `<span class="pill">WORLD ${game.levelIndex + 1}-1</span>`;
+    `<span class="pill">WORLD ${game.levelIndex + 1}/${LEVELS.length}</span>` +
+    `<span class="pill">${game.theme.emoji} ${game.theme.name}</span>`;
 }
 
 /* ---------------- Main loop ---------------- */
@@ -685,6 +957,12 @@ function frame(now) {
   last = now;
   if (dt > 0.05) dt = 0.05;          // clamp after tab switches
   game.time += dt;
+
+  if (game.themeFade > 0) game.themeFade = Math.max(0, game.themeFade - dt);
+  themeView = {
+    a: game.themePrev, b: game.theme,
+    t: game.themeFade > 0 ? 1 - game.themeFade / WORLD_FADE : 1,
+  };
 
   if (game.state === "play" || game.state === "respawn" || game.state === "transition") {
     if (game.state === "play" && player.alive) updatePlayer(dt);

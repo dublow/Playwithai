@@ -79,7 +79,9 @@ only control is jump.
 
 - **Touch:** tap *anywhere* to jump. **Desktop:** click, or `Space` / `↑` / `W`.
 - Time jumps to clear pits and stomp enemies from above, grab coin trails and
-  reach the flag. 3 lives across 2 levels.
+  reach the flag. 3 lives across **8 worlds, each its own universe** (forest,
+  savanna, desert, fire, jungle, night, space, north pole) that crossfades in
+  as you enter it.
 
 ### 🚀 Star Requiem — `games/star-requiem/`
 
