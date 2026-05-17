@@ -419,7 +419,7 @@ function freshState(){
 }
 
 /* transient UI */
-const UI = {sheet:null, selected:null, inspect:null, cell:null, specPrompted:false};
+const UI = {sheet:null, selected:null, inspect:null, cell:null, specPrompted:false, move:null};
 let NET = {};            // débit net /sec calculé chaque tick
 let PROD = {};           // production brute /s (pour la page Stats)
 let CONS = {};           // consommation brute /s (pour la page Stats)
@@ -779,9 +779,66 @@ function renderResHeader(){
 
   renderResources();
 }
+/* ---- Déplacement (long-press) : aperçu des gains/pertes de proximité ---- */
+function primaryRes(type){ const p=BUILDINGS[type].produce; return p?Object.keys(p)[0]:null; }
+function multMap(list){
+  // id -> multiplicateur d'adjacence sur la ressource principale (null si non producteur)
+  const B=computeBonuses(list), out={};
+  list.forEach(x=>{ const r=primaryRes(x.type);
+    out[x.id]= r? prodMult(B[x.id],r)*specMult(r) : null; });
+  return out;
+}
+function baseList(){ return S.buildings.map(b=>({id:b.id,type:b.type,r:b.r,c:b.c})); }
+function listWithMoverAt(r,c){
+  const id=UI.move.id;
+  return baseList().map(x=> x.id===id? {...x,r,c} : x);
+}
+function previewMove(r,c){
+  const id=UI.move.id;
+  const before=multMap(baseList());
+  const after =multMap(listWithMoverAt(r,c));
+  const mv=S.buildings.find(b=>b.id===id);
+  const res=primaryRes(mv.type);
+  const rows=[];
+  S.buildings.forEach(b=>{
+    if(b.id===id) return;
+    const bb=before[b.id], aa=after[b.id];
+    if(bb==null||aa==null) return;
+    if(Math.abs(aa-bb)>1e-6)
+      rows.push({name:BUILDINGS[b.type].name, res:primaryRes(b.type),
+                 before:bb, after:aa});
+  });
+  return {res, mvBefore:res?before[id]:null, mvAfter:res?after[id]:null, rows};
+}
+function startMove(b){
+  UI.move={id:b.id,r:b.r,c:b.c};
+  UI.sheet=null; UI.inspect=null; UI.selected=null;
+  $("#sheet").classList.add("hidden");
+  toast("Déplacement — touchez une case libre (ou le bâtiment pour annuler)");
+  renderGrid();
+}
+function cancelMove(){ UI.move=null; $("#sheet").classList.add("hidden"); UI.sheet=null; renderGrid(); }
+function doMove(r,c){
+  const mv=UI.move; if(!mv) return;
+  if(at(r,c)) { toast("Case occupée",true); return; }
+  const b=S.buildings.find(x=>x.id===mv.id); if(!b) return;
+  b.r=r; b.c=c;
+  log(`Déplacé : ${BUILDINGS[b.type].name}`);
+  UI.move=null; UI.sheet=null; UI.cell=null;
+  $("#sheet").classList.add("hidden");
+  render();
+}
 function renderGrid(){
   const g=$("#grid"); g.style.setProperty("--n",S.gridSize);
   const BMAP=computeBonuses(S.buildings.map(b=>({id:b.id,type:b.type,r:b.r,c:b.c})));
+  // contexte déplacement : multiplicateurs de référence
+  let MV=null;
+  if(UI.move){
+    const bl=baseList();
+    const baseM=multMap(bl);
+    const removedM=multMap(bl.filter(x=>x.id!==UI.move.id));
+    MV={baseM, removedM, moverBase:baseM[UI.move.id]};
+  }
   let html="";
   for(let r=0;r<S.gridSize;r++) for(let c=0;c<S.gridSize;c++){
     const b=at(r,c), key=r+","+c;
@@ -799,6 +856,16 @@ function renderGrid(){
       if(b.paused) cls.push("paused");
       if(idle) cls.push("idle");
       if(UI.inspect===b.id) cls.push("sel");
+      let losetag="";
+      if(MV){
+        if(b.id===UI.move.id) cls.push("moving");
+        else if(MV.baseM[b.id]!=null && MV.removedM[b.id]!=null
+                && MV.baseM[b.id] > MV.removedM[b.id]+1e-6){
+          cls.push("losing");
+          const dp=Math.round((MV.baseM[b.id]-MV.removedM[b.id])*100);
+          losetag=`<span class="delta dn">-${dp}%</span>`;  // perd si le mover s'éloigne
+        }
+      }
       let stat="";
       if(b.paused) stat=`<span class="stat pause ms">pause</span>`;
       else if(idle) stat=`<span class="stat warn ms">warning</span>`;
@@ -810,7 +877,15 @@ function renderGrid(){
       }
       html+=`<div class="${cls.join(' ')}" data-c="${key}" title="${d.name}">
         ${stat}<span class="ms bicon">${d.icon}</span>
-        <span class="bname">${d.name}</span>${mtag}</div>`;
+        <span class="bname">${d.name}</span>${mtag}${losetag}</div>`;
+    } else if(MV){
+      const am=multMap(listWithMoverAt(r,c))[UI.move.id];
+      let dtag=`<span class="delta zero">0%</span>`;
+      if(am!=null && MV.moverBase!=null){
+        const dp=Math.round((am-MV.moverBase)*100);
+        dtag=`<span class="delta ${dp>0?'up':(dp<0?'dn':'zero')}">${dp>0?'+':''}${dp}%</span>`;
+      }
+      html+=`<div class="cell empty drop" data-c="${key}">${dtag}</div>`;
     } else {
       html+=`<div class="cell empty" data-c="${key}"></div>`;
     }
@@ -967,9 +1042,11 @@ function renderInspect(b){
     h+=`</div>`;
   }
   h+=`<div class="row-btn">
+    <button class="btn" id="moveBtn"><span class="ms">open_with</span>Déplacer</button>
     <button class="btn" id="pauseBtn"><span class="ms">${b.paused?'play_arrow':'pause'}</span>${b.paused?'Reprendre':'Pause'}</button>
-    <button class="btn danger" id="destroyBtn"><span class="ms">delete</span>Démolir 50%</button>
-  </div></div>`;
+    <button class="btn danger" id="destroyBtn"><span class="ms">delete</span>Démolir</button>
+  </div>
+  <p class="empty-note" style="padding:8px 0 0">Astuce : appui long sur un bâtiment pour le déplacer.</p></div>`;
   return h;
 }
 function renderSheet(){
@@ -986,8 +1063,45 @@ function renderSheet(){
     const b=S.buildings.find(x=>x.id===UI.inspect);
     body.innerHTML=b?renderInspect(b):"";
     if(!b){ UI.sheet=null; sh.classList.add("hidden"); return; }
+  } else if(UI.sheet==="movepreview" && UI.move && UI.cell){
+    body.innerHTML=renderMovePreview(UI.cell.r,UI.cell.c);
   }
   sh.classList.remove("hidden");
+}
+function renderMovePreview(r,c){
+  const mv=S.buildings.find(b=>b.id===UI.move.id);
+  const d=BUILDINGS[mv.type];
+  const pv=previewMove(r,c);
+  const pct=x=>`${x>1.0001?'+':''}${Math.round((x-1)*100)}%`;
+  let h=`<div class="dtl">
+    <div class="sheet-h">
+      <h3><span class="ms">open_with</span>Déplacer ${d.name}</h3>
+      <button class="back" data-act="cancelmove"><span class="ms">close</span></button>
+    </div>`;
+  if(pv.res){
+    const delta=Math.round((pv.mvAfter-pv.mvBefore)*100);
+    const cl=delta>0?'pos':(delta<0?'neg':'');
+    h+=`<div class="kv"><span>${d.name} (${rname(pv.res)})</span>
+      <b class="${cl}">${pct(pv.mvBefore)} → ${pct(pv.mvAfter)} (${delta>0?'+':''}${delta} pt)</b></div>`;
+  } else {
+    h+=`<p class="desc">Ce bâtiment n'a pas de production propre ; il influence ses voisins.</p>`;
+  }
+  if(pv.rows.length){
+    h+=`<div class="sec-title">Effets sur le voisinage</div>`;
+    pv.rows.forEach(rw=>{
+      const delta=Math.round((rw.after-rw.before)*100);
+      const cl=delta>0?'pos':'neg';
+      h+=`<div class="kv"><span>${rw.name} (${rname(rw.res)})</span>
+        <b class="${cl}">${pct(rw.before)} → ${pct(rw.after)} (${delta>0?'+':''}${delta} pt)</b></div>`;
+    });
+  } else {
+    h+=`<p class="empty-note">Aucun autre bâtiment affecté à cet emplacement.</p>`;
+  }
+  h+=`<div class="row-btn">
+    <button class="btn" data-act="cancelmove"><span class="ms">arrow_back</span>Annuler</button>
+    <button class="btn primary" data-act="domove"><span class="ms">open_with</span>Déplacer ici</button>
+  </div></div>`;
+  return h;
 }
 function closeSheet(){
   UI.sheet=null; UI.selected=null; UI.inspect=null; UI.cell=null;
@@ -1170,18 +1284,43 @@ function loadGame(){
 function resetGame(){
   try{ localStorage.removeItem(SAVE_KEY); }catch(e){}
   S=freshState();
-  UI.sheet=null; UI.selected=null; UI.inspect=null; UI.cell=null; UI.specPrompted=false;
+  UI.sheet=null; UI.selected=null; UI.inspect=null; UI.cell=null; UI.specPrompted=false; UI.move=null;
   $("#sheet").classList.add("hidden");
   closeModal(); log("Nouvelle partie","info"); render();
 }
 
 /* ===================== EVENTS ===================== */
 function bind(){
-  // grille : case vide -> menu construire ; case occupée -> infos
-  $("#grid").addEventListener("click",e=>{
+  const grid=$("#grid");
+  // appui long sur un bâtiment -> mode déplacement
+  let lpT=null, lpXY=null, suppress=false;
+  const clearLP=()=>{ if(lpT){ clearTimeout(lpT); lpT=null; } };
+  grid.addEventListener("contextmenu",e=>e.preventDefault());
+  grid.addEventListener("pointerdown",e=>{
+    if(UI.move) return;
+    const cell=e.target.closest(".cell"); if(!cell) return;
+    const [r,c]=cell.dataset.c.split(",").map(Number);
+    const b=at(r,c); if(!b) return;
+    lpXY=[e.clientX,e.clientY];
+    lpT=setTimeout(()=>{ lpT=null; suppress=true; startMove(b); },450);
+  });
+  grid.addEventListener("pointermove",e=>{
+    if(lpT&&lpXY){ const dx=e.clientX-lpXY[0],dy=e.clientY-lpXY[1];
+      if(dx*dx+dy*dy>100) clearLP(); }
+  });
+  ["pointerup","pointercancel","pointerleave"].forEach(ev=>
+    grid.addEventListener(ev,clearLP));
+
+  grid.addEventListener("click",e=>{
+    if(suppress){ suppress=false; return; }   // c'était un appui long
     const cell=e.target.closest(".cell"); if(!cell) return;
     const [r,c]=cell.dataset.c.split(",").map(Number);
     const b=at(r,c);
+    if(UI.move){
+      if(b && b.id===UI.move.id){ cancelMove(); return; }   // re-tap mover = annuler
+      if(!b){ UI.cell={r,c}; UI.sheet="movepreview"; renderSheet(); return; }
+      return;                                                // autre bâtiment : ignore
+    }
     if(b){ UI.inspect=b.id; UI.selected=null; UI.cell=null; UI.sheet="inspect"; }
     else { UI.cell={r,c}; UI.selected=null; UI.inspect=null; UI.sheet="palette"; }
     renderGrid(); renderSheet();
@@ -1189,8 +1328,18 @@ function bind(){
 
   // contenu du bottom-sheet (palette / détail / inspection)
   $("#sheet").addEventListener("click",e=>{
+    if(e.target.closest('[data-act="domove"]')){
+      if(UI.move&&UI.cell) doMove(UI.cell.r,UI.cell.c); return;
+    }
+    if(e.target.closest('[data-act="cancelmove"]') ||
+       (e.target.id==="sheet" && UI.sheet==="movepreview")){
+      UI.sheet=null; $("#sheet").classList.add("hidden"); renderGrid(); return; // reste en mode déplacement
+    }
     if(e.target.id==="sheet"){ closeSheet(); return; }   // tap hors carte
     if(e.target.closest('[data-act="close"]')){ closeSheet(); return; }
+    if(e.target.closest("#moveBtn")){
+      const b=S.buildings.find(x=>x.id===UI.inspect); if(b) startMove(b); return;
+    }
     if(e.target.closest('[data-act="cancel"]')){
       UI.selected=null; UI.sheet="palette"; renderSheet(); return;
     }

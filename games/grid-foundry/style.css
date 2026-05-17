@@ -47,6 +47,7 @@ body{
   position:relative;border-radius:10px;border:1px solid var(--line);
   background:#0c1119;display:flex;flex-direction:column;align-items:center;justify-content:center;
   cursor:pointer;transition:.13s;overflow:hidden;
+  touch-action:manipulation;-webkit-touch-callout:none;
 }
 .cell:active{transform:scale(.96)}
 .cell.empty::after{content:'add';font-family:'Material Symbols Rounded';
@@ -66,6 +67,17 @@ body{
 .cell .mult{position:absolute;bottom:3px;font-size:clamp(8px,1.7vw,10px);
   font-variant-numeric:tabular-nums;color:var(--good)}
 .cell .mult.dn{color:var(--warn)}
+/* mode déplacement */
+.cell.moving{outline:2px dashed var(--acc);outline-offset:-2px;
+  animation:idle 1.4s infinite;border-color:var(--acc)}
+.cell.drop{border-style:dashed;border-color:rgba(0,211,167,.5);
+  background:rgba(0,211,167,.05)}
+.cell.drop::after{content:none}
+.cell.losing{box-shadow:inset 0 0 0 2px rgba(255,93,93,.55)}
+.cell .delta{position:absolute;bottom:3px;font-size:clamp(8px,1.8vw,11px);
+  font-weight:700;font-variant-numeric:tabular-nums}
+.cell .delta.up{color:var(--good)} .cell .delta.dn{color:var(--warn)}
+.cell .delta.zero{color:var(--dim)}
 
 /* ---------- Floating header toggle ---------- */
 .fab{
