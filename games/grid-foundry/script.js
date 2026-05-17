@@ -789,6 +789,17 @@ function ioLine(obj,kind){
     return `<span class="grp"><span class="ms">${RESOURCES[k].icon}</span><span class="${vc}">${v}</span> ${rname(k)}</span>`;
   }).join("")+`</div>`;
 }
+/* Découverte progressive : les 4 bâtiments de base sont toujours visibles ;
+   un autre n'apparaît dans le menu qu'une fois que TOUTES les ressources de
+   son coût ont été produites/récoltées au moins une fois (S.total est
+   monotone -> la révélation est définitive, rien à persister en plus).      */
+const BASE_BUILDINGS = ["scierie","carriere","puits","ferme"];
+function isRevealed(k){
+  if(BASE_BUILDINGS.includes(k)) return true;
+  const cost=BUILDINGS[k].cost||{};
+  for(const r in cost) if((S.total[r]||0) <= 0) return false;
+  return true;
+}
 function renderBuildTab(){
   let h="";
   // choix de spécialisation
@@ -803,9 +814,13 @@ function renderBuildTab(){
       </div>`;
     }
   }
+  let any=false;
   BUILD_ORDER.forEach(([title,keys])=>{
+    const vis=keys.filter(isRevealed);
+    if(!vis.length) return;
+    any=true;
     h+=`<div class="sec-title">${title}</div><div class="bpalette">`;
-    keys.forEach(k=>{
+    vis.forEach(k=>{
       const d=BUILDINGS[k];
       const locked=d.tier>S.tierUnlocked;
       const cant=!locked && !canAfford(d.cost);
@@ -820,6 +835,7 @@ function renderBuildTab(){
     });
     h+=`</div>`;
   });
+  if(!any) h+=`<p class="empty-note">Récoltez et produisez des ressources<br>pour débloquer de nouveaux bâtiments.</p>`;
   return h;
 }
 function renderBuildDetail(type){
