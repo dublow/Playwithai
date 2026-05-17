@@ -142,7 +142,7 @@
         "pierre": 5
       },
       "produce": {
-        "bois": 2
+        "bois": 3
       }
     },
     "carriere": {
@@ -197,7 +197,7 @@
         "bois": 10
       },
       "consume": {
-        "bois": 2
+        "bois": 1
       },
       "produce": {
         "charbon": 1
@@ -214,7 +214,7 @@
         "bois": 10
       },
       "consume": {
-        "pierre": 2,
+        "pierre": 1,
         "eau": 1
       },
       "produce": {
@@ -571,7 +571,7 @@
       },
       "consume": {
         "plasma": 1,
-        "alliage": 1
+        "energieStable": 1
       },
       "produce": {
         "cristal": 1
@@ -1265,7 +1265,7 @@
         "nourriture": 1.2,
         "ouvrier": 1.2,
         "biomasse": 1.15,
-        "metal": 0.9
+        "charbon": 0.9
       },
       "txt": [
         [
@@ -1281,7 +1281,7 @@
           15
         ],
         [
-          "metal",
+          "charbon",
           -10
         ]
       ]
