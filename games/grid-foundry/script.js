@@ -1,8 +1,8 @@
 "use strict";
 /* =====================================================================
    GRID FOUNDRY — puzzle industriel stratégique compact
-   Architecture data-driven : RESOURCES / BUILDINGS / ADJACENCY / CHAINS
-   / SPECS / OBJECTIVES / TIERS. Aucune règle n'est codée en dur ailleurs.
+   Architecture data-driven : RESOURCES / BUILDINGS / SPECS / OBJECTIVES / TIERS.
+   Aucune règle n'est codée en dur ailleurs.
    ===================================================================== */
 
 /* ---------------------- RESOURCES ---------------------- */
@@ -142,148 +142,6 @@ const BUILD_ORDER = [
   ["Axe Énergie / Fusion", ["stabilisateur","reacteurplasma","cristalliseur","chambreantimatiere","reacteurstellaire"]],
 ];
 
-/* ---------------------- ADJACENCY ----------------------
-   { near, tgt:'self'|'nb', res, pct }  pct<0 = malus
-   { near, tgt, res, cons:true, pct }   réduction de conso (pct%)        */
-const ADJACENCY = {
-  scierie:[
-    {near:"centreville",tgt:"self",res:"bois",pct:10},
-    {near:"fourneau",tgt:"nb",res:"charbon",pct:10},
-    {near:"generateur",tgt:"self",res:"bois",pct:-10},
-  ],
-  carriere:[
-    {near:"briqueterie",tgt:"nb",res:"brique",pct:15},
-    {near:"forge",tgt:"nb",res:"metal",pct:10},
-    {near:"centreville",tgt:"self",res:"pierre",pct:10},
-  ],
-  ferme:[
-    {near:"puits",tgt:"self",res:"nourriture",pct:25},
-    {near:"cantine",tgt:"nb",res:"ouvrier",pct:15},
-    {near:"centreville",tgt:"self",res:"nourriture",pct:10},
-    {near:"fourneau",tgt:"self",res:"nourriture",pct:-20},
-    {near:"generateur",tgt:"self",res:"nourriture",pct:-15},
-    {near:"usine",tgt:"self",res:"nourriture",pct:-20},
-  ],
-  puits:[
-    {near:"ferme",tgt:"nb",res:"nourriture",pct:25},
-    {near:"generateur",tgt:"nb",res:"energie",pct:10},
-    {near:"stabilisateur",tgt:"nb",res:"energieStable",pct:15},
-    {near:"centreville",tgt:"self",res:"eau",pct:10},
-  ],
-  fourneau:[
-    {near:"scierie",tgt:"self",res:"charbon",pct:15},
-    {near:"forge",tgt:"nb",res:"metal",pct:25},
-    {near:"centreville",tgt:"self",res:"charbon",pct:10},
-  ],
-  briqueterie:[
-    {near:"carriere",tgt:"self",res:"brique",pct:20},
-    {near:"puits",tgt:"self",res:"eau",cons:true,pct:10},
-    {near:"centreville",tgt:"self",res:"brique",pct:10},
-  ],
-  cantine:[
-    {near:"ferme",tgt:"self",res:"ouvrier",pct:20},
-    {near:"puits",tgt:"self",res:"ouvrier",pct:10},
-    {near:"centreville",tgt:"self",res:"ouvrier",pct:10},
-  ],
-  forge:[
-    {near:"fourneau",tgt:"self",res:"metal",pct:25},
-    {near:"carriere",tgt:"self",res:"metal",pct:10},
-    {near:"generateur",tgt:"self",res:"metal",pct:10},
-    {near:"atelier",tgt:"nb",res:"outil",pct:25},
-  ],
-  generateur:[
-    {near:"puits",tgt:"self",res:"eau",cons:true,pct:15},
-    {near:"fourneau",tgt:"self",res:"energie",pct:15},
-    {near:"usine",tgt:"nb",res:"machine",pct:25},
-    {near:"reacteurplasma",tgt:"nb",res:"plasma",pct:20},
-  ],
-  atelier:[
-    {near:"forge",tgt:"self",res:"outil",pct:25},
-    {near:"usine",tgt:"nb",res:"machine",pct:10},
-    {near:"scierie",tgt:"self",res:"bois",cons:true,pct:10},
-  ],
-  usine:[
-    {near:"generateur",tgt:"self",res:"machine",pct:25},
-    {near:"atelier",tgt:"self",res:"machine",pct:10},
-    {near:"circuiterie",tgt:"nb",res:"circuit",pct:20},
-  ],
-  fonderie:[
-    {near:"forge",tgt:"self",res:"alliage",pct:20},
-    {near:"generateur",tgt:"self",res:"alliage",pct:10},
-  ],
-  circuiterie:[
-    {near:"usine",tgt:"self",res:"circuit",pct:20},
-    {near:"generateur",tgt:"self",res:"circuit",pct:10},
-    {near:"labquantique",tgt:"nb",res:"calcul",pct:20},
-  ],
-  labquantique:[
-    {near:"circuiterie",tgt:"self",res:"calcul",pct:20},
-    {near:"generateur",tgt:"self",res:"calcul",pct:10},
-    {near:"centrecalcul",tgt:"nb",res:"ordinateur",pct:20},
-  ],
-  centrecalcul:[
-    {near:"labquantique",tgt:"self",res:"ordinateur",pct:20},
-    {near:"circuiterie",tgt:"self",res:"ordinateur",pct:10},
-    {near:"generateur",tgt:"self",res:"ordinateur",pct:10},
-  ],
-  bioreacteur:[
-    {near:"ferme",tgt:"self",res:"biomasse",pct:20},
-    {near:"puits",tgt:"self",res:"biomasse",pct:15},
-    {near:"generateur",tgt:"self",res:"biomasse",pct:10},
-    {near:"fourneau",tgt:"self",res:"biomasse",pct:-15},
-  ],
-  labadn:[
-    {near:"bioreacteur",tgt:"self",res:"adn",pct:20},
-    {near:"generateur",tgt:"self",res:"adn",pct:10},
-    {near:"forge",tgt:"self",res:"adn",pct:-10},
-  ],
-  incubateur:[
-    {near:"labadn",tgt:"self",res:"cellule",pct:20},
-    {near:"ferme",tgt:"self",res:"cellule",pct:15},
-    {near:"usine",tgt:"self",res:"cellule",pct:-15},
-  ],
-  chambreevo:[
-    {near:"incubateur",tgt:"self",res:"organisme",pct:20},
-    {near:"bioreacteur",tgt:"self",res:"organisme",pct:10},
-  ],
-  nexus:[
-    {near:"chambreevo",tgt:"self",res:"conscience",pct:20},
-    {near:"labadn",tgt:"self",res:"conscience",pct:10},
-  ],
-  stabilisateur:[
-    {near:"generateur",tgt:"self",res:"energieStable",pct:20},
-    {near:"puits",tgt:"self",res:"energieStable",pct:15},
-  ],
-  reacteurplasma:[
-    {near:"generateur",tgt:"self",res:"plasma",pct:20},
-    {near:"stabilisateur",tgt:"self",res:"plasma",pct:15},
-  ],
-  cristalliseur:[
-    {near:"reacteurplasma",tgt:"self",res:"cristal",pct:20},
-    {near:"fonderie",tgt:"self",res:"cristal",pct:15},
-  ],
-  chambreantimatiere:[
-    {near:"cristalliseur",tgt:"self",res:"antimatiere",pct:20},
-    {near:"stabilisateur",tgt:"self",res:"antimatiere",pct:15},
-  ],
-  reacteurstellaire:[
-    {near:"chambreantimatiere",tgt:"self",res:"reacteurStellaire",pct:20},
-    {near:"cristalliseur",tgt:"self",res:"reacteurStellaire",pct:10},
-    {near:"stabilisateur",tgt:"self",res:"reacteurStellaire",pct:10},
-  ],
-};
-/* Centre-ville / Hub : effet générique géré dans computeBonuses() */
-
-/* ---------------------- CHAINS ----------------------
-   mid adjacent à `a` ET à `c` -> +pct sur `res` du bâtiment `at`        */
-const CHAINS = [
-  {name:"Chaîne métal",    mid:"forge",        a:"fourneau",    c:"atelier",      res:"outil",      at:"atelier",      pct:10},
-  {name:"Chaîne machines", mid:"usine",        a:"generateur",  c:"circuiterie",  res:"circuit",    at:"circuiterie",  pct:10},
-  {name:"Chaîne quantique",mid:"labquantique", a:"circuiterie", c:"centrecalcul", res:"ordinateur", at:"centrecalcul", pct:10},
-  {name:"Chaîne bio",      mid:"bioreacteur",  a:"ferme",       c:"labadn",       res:"adn",        at:"labadn",       pct:10},
-  {name:"Chaîne énergie",  mid:"stabilisateur",a:"generateur",  c:"reacteurplasma",res:"plasma",    at:"reacteurplasma",pct:10},
-];
-
 /* ---------------------- SPECIALISATIONS ---------------------- */
 const SPECS = {
   metal:  {name:"Axe Métal / Technologie", icon:"memory",
@@ -358,9 +216,6 @@ const EXPAND = {
 const EFF = [1, 0.92, 0.84, 0.76, 0.68];
 const effFactor = i => EFF[Math.min(i, EFF.length - 1)];
 
-/* caps voisinage */
-const CAP_SINGLE = 25, CAP_POS = 50, CAP_NEG = 40, CAP_CONS = 40;
-
 /* Univers : la colonie traverse des ÈRES (pas de "Tier X") */
 const ERA   = {1:"Ère Pionnière", 2:"Ère Industrielle", 3:"Ère Avancée"};
 const ROMAN = {1:"I", 2:"II", 3:"III"};
@@ -419,7 +274,7 @@ function freshState(){
 }
 
 /* transient UI */
-const UI = {sheet:null, selected:null, inspect:null, cell:null, specPrompted:false, move:null};
+const UI = {sheet:null, selected:null, inspect:null, cell:null, specPrompted:false};
 let NET = {};            // débit net /sec calculé chaque tick
 let PROD = {};           // production brute /s (pour la page Stats)
 let CONS = {};           // consommation brute /s (pour la page Stats)
@@ -465,99 +320,6 @@ function toast(msg,bad=false){
   toastT=setTimeout(()=>el.classList.add("hidden"),2200);
 }
 
-/* ===================== ADJACENCY ENGINE ===================== */
-function computeBonuses(list){
-  /* Le cahier décrit chaque interaction des DEUX côtés (Ferme↔Puits…).
-     On regroupe donc par (cible, ressource, voisin source) et on plafonne
-     ce groupe au bonus principal (CAP_SINGLE). Les bonus de chaîne et de
-     centre sont comptés à part (bucket "extra"). Résultat : map id ->
-     {pos:{res:%}, neg:{res:%}, cons:{res:%}} déjà plafonné.            */
-  const cellOf={}; list.forEach(b=>cellOf[b.r+","+b.c]=b);
-  const nb = b => [[b.r-1,b.c],[b.r+1,b.c],[b.r,b.c-1],[b.r,b.c+1]]
-                  .map(([r,c])=>cellOf[r+","+c]).filter(Boolean);
-
-  const adjPos={}, adjNeg={}, extra={}, consAcc={};
-  const grp=(o,id,res,src,v)=>{
-    (o[id]=o[id]||{}); (o[id][res]=o[id][res]||{});
-    o[id][res][src]=(o[id][res][src]||0)+v;
-  };
-  const addExtra=(id,res,v)=>{ (extra[id]=extra[id]||{});
-    extra[id][res]=(extra[id][res]||0)+v; };
-  const addCons=(id,res,v)=>{ (consAcc[id]=consAcc[id]||{});
-    consAcc[id][res]=(consAcc[id][res]||0)+v; };
-
-  // règles d'adjacence explicites
-  list.forEach(b=>{
-    const rules=ADJACENCY[b.type]; if(!rules) return;
-    const ns=nb(b);
-    rules.forEach(rl=>ns.forEach(n=>{
-      if(n.type!==rl.near) return;
-      if(rl.cons){ addCons(b.id, rl.res, rl.pct); return; }
-      // source = le bâtiment "autre" que la cible (dédoublonne les réciproques)
-      if(rl.tgt==="nb"){
-        (rl.pct>=0?grp(adjPos,n.id,rl.res,b.id,rl.pct)
-                  :grp(adjNeg,n.id,rl.res,b.id,-rl.pct));
-      } else {
-        (rl.pct>=0?grp(adjPos,b.id,rl.res,n.id,rl.pct)
-                  :grp(adjNeg,b.id,rl.res,n.id,-rl.pct));
-      }
-    }));
-  });
-
-  // Centre-ville : +10% Tier1/2 adjacents | Hub : +10% industriels adjacents
-  list.forEach(b=>{
-    if(b.type!=="centreville" && b.type!=="hub") return;
-    nb(b).forEach(n=>{
-      const def=BUILDINGS[n.type]; if(!def||!def.produce) return;
-      if(b.type==="centreville"){
-        if(def.tier>2) return;
-        const nr=ADJACENCY[n.type];           // évite le double comptage
-        if(nr && nr.some(r=>r.near==="centreville")) return;
-      } else if(def.tier<2) return;
-      for(const res in def.produce) addExtra(n.id,res,10);
-    });
-  });
-
-  // chaînes : mid adjacent à `a` ET `c`
-  CHAINS.forEach(ch=>{
-    list.filter(b=>b.type===ch.mid).forEach(m=>{
-      const ns=nb(m);
-      const A=ns.find(n=>n.type===ch.a);
-      const C=ns.find(n=>n.type===ch.c);
-      if(A&&C){ const recv = ch.at===ch.a ? A : C;
-        addExtra(recv.id, ch.res, ch.pct); }
-    });
-  });
-
-  const B={};
-  list.forEach(b=>{
-    const o={pos:{},neg:{},cons:{}};
-    const ap=adjPos[b.id]||{}, an=adjNeg[b.id]||{}, ex=extra[b.id]||{}, cn=consAcc[b.id]||{};
-    const all=new Set([...Object.keys(ap),...Object.keys(an),...Object.keys(ex)]);
-    all.forEach(res=>{
-      let pos=0;
-      if(ap[res]) for(const s in ap[res]) pos+=Math.min(CAP_SINGLE,ap[res][s]);
-      if(ex[res]) pos+=ex[res];
-      let neg=0;
-      if(an[res]) for(const s in an[res]) neg+=Math.min(CAP_SINGLE,an[res][s]);
-      o.pos[res]=Math.min(CAP_POS,pos);
-      o.neg[res]=Math.min(CAP_NEG,neg);
-    });
-    for(const res in cn) o.cons[res]=Math.min(CAP_CONS,cn[res]);
-    B[b.id]=o;
-  });
-  return B;
-}
-function prodMult(bonus,res){
-  if(!bonus) return 1;
-  const p=Math.min(CAP_POS, bonus.pos[res]||0);
-  const n=Math.min(CAP_NEG, bonus.neg[res]||0);
-  return Math.max(0.1, 1 + p/100 - n/100);
-}
-function consMult(bonus,res){
-  if(!bonus) return 1;
-  return Math.max(1-CAP_CONS/100, 1 - (bonus.cons[res]||0)/100);
-}
 function specMult(res){
   if(!S.spec) return 1;
   return SPECS[S.spec].mods[res] || 1;
@@ -565,9 +327,6 @@ function specMult(res){
 
 /* ===================== PRODUCTION TICK ===================== */
 function tick(silent){
-  const list=S.buildings.map(b=>({id:b.id,type:b.type,r:b.r,c:b.c}));
-  const bonus=computeBonuses(list);
-
   // index par type (ordre de pose) pour rendements décroissants
   const order={};
   [...S.buildings].sort((a,b)=>a.order-b.order).forEach(b=>{
@@ -582,11 +341,10 @@ function tick(silent){
   for(const b of seq){
     const def=BUILDINGS[b.type];
     if(b.paused){ ACTIVE[b.id]=false; continue; }
-    const bo=bonus[b.id];
 
     // coût de fonctionnement effectif
     const cons={};
-    if(def.consume) for(const k in def.consume) cons[k]=def.consume[k]*consMult(bo,k)*RATE;
+    if(def.consume) for(const k in def.consume) cons[k]=def.consume[k]*RATE;
     let ok=true;
     for(const k in cons) if((S.stock[k]||0) < cons[k]){ ok=false; break; }
 
@@ -599,7 +357,7 @@ function tick(silent){
     }
     if(def.produce){
       for(const k in def.produce){
-        const amt=def.produce[k]*prodMult(bo,k)*specMult(k)*b._eff*RATE;
+        const amt=def.produce[k]*specMult(k)*b._eff*RATE;
         S.stock[k]=Math.min(1e9,(S.stock[k]||0)+amt);
         S.total[k]=(S.total[k]||0)+amt;
         NET[k]=(NET[k]||0)+amt;
@@ -779,66 +537,8 @@ function renderResHeader(){
 
   renderResources();
 }
-/* ---- Déplacement (long-press) : aperçu des gains/pertes de proximité ---- */
-function primaryRes(type){ const p=BUILDINGS[type].produce; return p?Object.keys(p)[0]:null; }
-function multMap(list){
-  // id -> multiplicateur d'adjacence sur la ressource principale (null si non producteur)
-  const B=computeBonuses(list), out={};
-  list.forEach(x=>{ const r=primaryRes(x.type);
-    out[x.id]= r? prodMult(B[x.id],r)*specMult(r) : null; });
-  return out;
-}
-function baseList(){ return S.buildings.map(b=>({id:b.id,type:b.type,r:b.r,c:b.c})); }
-function listWithMoverAt(r,c){
-  const id=UI.move.id;
-  return baseList().map(x=> x.id===id? {...x,r,c} : x);
-}
-function previewMove(r,c){
-  const id=UI.move.id;
-  const before=multMap(baseList());
-  const after =multMap(listWithMoverAt(r,c));
-  const mv=S.buildings.find(b=>b.id===id);
-  const res=primaryRes(mv.type);
-  const rows=[];
-  S.buildings.forEach(b=>{
-    if(b.id===id) return;
-    const bb=before[b.id], aa=after[b.id];
-    if(bb==null||aa==null) return;
-    if(Math.abs(aa-bb)>1e-6)
-      rows.push({name:BUILDINGS[b.type].name, res:primaryRes(b.type),
-                 before:bb, after:aa});
-  });
-  return {res, mvBefore:res?before[id]:null, mvAfter:res?after[id]:null, rows};
-}
-function startMove(b){
-  UI.move={id:b.id,r:b.r,c:b.c};
-  UI.sheet=null; UI.inspect=null; UI.selected=null;
-  $("#sheet").classList.add("hidden");
-  toast("Déplacement — touchez une case libre (ou le bâtiment pour annuler)");
-  renderGrid();
-}
-function cancelMove(){ UI.move=null; $("#sheet").classList.add("hidden"); UI.sheet=null; renderGrid(); }
-function doMove(r,c){
-  const mv=UI.move; if(!mv) return;
-  if(at(r,c)) { toast("Case occupée",true); return; }
-  const b=S.buildings.find(x=>x.id===mv.id); if(!b) return;
-  b.r=r; b.c=c;
-  log(`Déplacé : ${BUILDINGS[b.type].name}`);
-  UI.move=null; UI.sheet=null; UI.cell=null;
-  $("#sheet").classList.add("hidden");
-  render();
-}
 function renderGrid(){
   const g=$("#grid"); g.style.setProperty("--n",S.gridSize);
-  const BMAP=computeBonuses(S.buildings.map(b=>({id:b.id,type:b.type,r:b.r,c:b.c})));
-  // contexte déplacement : multiplicateurs de référence
-  let MV=null;
-  if(UI.move){
-    const bl=baseList();
-    const baseM=multMap(bl);
-    const removedM=multMap(bl.filter(x=>x.id!==UI.move.id));
-    MV={baseM, removedM, moverBase:baseM[UI.move.id]};
-  }
   let html="";
   for(let r=0;r<S.gridSize;r++) for(let c=0;c<S.gridSize;c++){
     const b=at(r,c), key=r+","+c;
@@ -846,46 +546,17 @@ function renderGrid(){
       const d=BUILDINGS[b.type];
       // état "à l'arrêt" lissé par hystérésis (pas de clignotement)
       const idle=!!d.consume && !b.paused && (b._starve||0)>=STARVE_SHOW;
-      // multiplicateur DÉTERMINISTE : dépend du placement, pas du tick
-      let m=1;
-      if(d.produce){
-        const k=Object.keys(d.produce)[0];
-        m=prodMult(BMAP[b.id],k)*specMult(k)*(b._eff||1);
-      }
       const cls=["cell","filled"];
       if(b.paused) cls.push("paused");
       if(idle) cls.push("idle");
       if(UI.inspect===b.id) cls.push("sel");
-      let losetag="";
-      if(MV){
-        if(b.id===UI.move.id) cls.push("moving");
-        else if(MV.baseM[b.id]!=null && MV.removedM[b.id]!=null
-                && MV.baseM[b.id] > MV.removedM[b.id]+1e-6){
-          cls.push("losing");
-          const dp=Math.round((MV.baseM[b.id]-MV.removedM[b.id])*100);
-          losetag=`<span class="delta dn">-${dp}%</span>`;  // perd si le mover s'éloigne
-        }
-      }
       let stat="";
       if(b.paused) stat=`<span class="stat pause ms">pause</span>`;
       else if(idle) stat=`<span class="stat warn ms">warning</span>`;
       else if(d.produce) stat=`<span class="stat run ms">bolt</span>`;
-      let mtag="";
-      if(d.produce && !b.paused){
-        const pct=Math.round((m-1)*100);
-        if(pct!==0) mtag=`<span class="mult ${pct<0?'dn':''}">${pct>0?'+':''}${pct}%</span>`;
-      }
       html+=`<div class="${cls.join(' ')}" data-c="${key}" title="${d.name}">
         ${stat}<span class="ms bicon">${d.icon}</span>
-        <span class="bname">${d.name}</span>${mtag}${losetag}</div>`;
-    } else if(MV){
-      const am=multMap(listWithMoverAt(r,c))[UI.move.id];
-      let dtag=`<span class="delta zero">0%</span>`;
-      if(am!=null && MV.moverBase!=null){
-        const dp=Math.round((am-MV.moverBase)*100);
-        dtag=`<span class="delta ${dp>0?'up':(dp<0?'dn':'zero')}">${dp>0?'+':''}${dp}%</span>`;
-      }
-      html+=`<div class="cell empty drop" data-c="${key}">${dtag}</div>`;
+        <span class="bname">${d.name}</span></div>`;
     } else {
       html+=`<div class="cell empty" data-c="${key}"></div>`;
     }
@@ -1063,45 +734,8 @@ function renderSheet(){
     const b=S.buildings.find(x=>x.id===UI.inspect);
     body.innerHTML=b?renderInspect(b):"";
     if(!b){ UI.sheet=null; sh.classList.add("hidden"); return; }
-  } else if(UI.sheet==="movepreview" && UI.move && UI.cell){
-    body.innerHTML=renderMovePreview(UI.cell.r,UI.cell.c);
   }
   sh.classList.remove("hidden");
-}
-function renderMovePreview(r,c){
-  const mv=S.buildings.find(b=>b.id===UI.move.id);
-  const d=BUILDINGS[mv.type];
-  const pv=previewMove(r,c);
-  const pct=x=>`${x>1.0001?'+':''}${Math.round((x-1)*100)}%`;
-  let h=`<div class="dtl">
-    <div class="sheet-h">
-      <h3><span class="ms">open_with</span>Déplacer ${d.name}</h3>
-      <button class="back" data-act="cancelmove"><span class="ms">close</span></button>
-    </div>`;
-  if(pv.res){
-    const delta=Math.round((pv.mvAfter-pv.mvBefore)*100);
-    const cl=delta>0?'pos':(delta<0?'neg':'');
-    h+=`<div class="kv"><span>${d.name} (${rname(pv.res)})</span>
-      <b class="${cl}">${pct(pv.mvBefore)} → ${pct(pv.mvAfter)} (${delta>0?'+':''}${delta} pt)</b></div>`;
-  } else {
-    h+=`<p class="desc">Ce bâtiment n'a pas de production propre ; il influence ses voisins.</p>`;
-  }
-  if(pv.rows.length){
-    h+=`<div class="sec-title">Effets sur le voisinage</div>`;
-    pv.rows.forEach(rw=>{
-      const delta=Math.round((rw.after-rw.before)*100);
-      const cl=delta>0?'pos':'neg';
-      h+=`<div class="kv"><span>${rw.name} (${rname(rw.res)})</span>
-        <b class="${cl}">${pct(rw.before)} → ${pct(rw.after)} (${delta>0?'+':''}${delta} pt)</b></div>`;
-    });
-  } else {
-    h+=`<p class="empty-note">Aucun autre bâtiment affecté à cet emplacement.</p>`;
-  }
-  h+=`<div class="row-btn">
-    <button class="btn" data-act="cancelmove"><span class="ms">arrow_back</span>Annuler</button>
-    <button class="btn primary" data-act="domove"><span class="ms">open_with</span>Déplacer ici</button>
-  </div></div>`;
-  return h;
 }
 function closeSheet(){
   UI.sheet=null; UI.selected=null; UI.inspect=null; UI.cell=null;
@@ -1284,7 +918,7 @@ function loadGame(){
 function resetGame(){
   try{ localStorage.removeItem(SAVE_KEY); }catch(e){}
   S=freshState();
-  UI.sheet=null; UI.selected=null; UI.inspect=null; UI.cell=null; UI.specPrompted=false; UI.move=null;
+  UI.sheet=null; UI.selected=null; UI.inspect=null; UI.cell=null; UI.specPrompted=false;
   $("#sheet").classList.add("hidden");
   closeModal(); log("Nouvelle partie","info"); render();
 }
@@ -1292,35 +926,11 @@ function resetGame(){
 /* ===================== EVENTS ===================== */
 function bind(){
   const grid=$("#grid");
-  // appui long sur un bâtiment -> mode déplacement
-  let lpT=null, lpXY=null, suppress=false;
-  const clearLP=()=>{ if(lpT){ clearTimeout(lpT); lpT=null; } };
-  grid.addEventListener("contextmenu",e=>e.preventDefault());
-  grid.addEventListener("pointerdown",e=>{
-    if(UI.move) return;
-    const cell=e.target.closest(".cell"); if(!cell) return;
-    const [r,c]=cell.dataset.c.split(",").map(Number);
-    const b=at(r,c); if(!b) return;
-    lpXY=[e.clientX,e.clientY];
-    lpT=setTimeout(()=>{ lpT=null; suppress=true; startMove(b); },450);
-  });
-  grid.addEventListener("pointermove",e=>{
-    if(lpT&&lpXY){ const dx=e.clientX-lpXY[0],dy=e.clientY-lpXY[1];
-      if(dx*dx+dy*dy>100) clearLP(); }
-  });
-  ["pointerup","pointercancel","pointerleave"].forEach(ev=>
-    grid.addEventListener(ev,clearLP));
 
   grid.addEventListener("click",e=>{
-    if(suppress){ suppress=false; return; }   // c'était un appui long
     const cell=e.target.closest(".cell"); if(!cell) return;
     const [r,c]=cell.dataset.c.split(",").map(Number);
     const b=at(r,c);
-    if(UI.move){
-      if(b && b.id===UI.move.id){ cancelMove(); return; }   // re-tap mover = annuler
-      if(!b){ UI.cell={r,c}; UI.sheet="movepreview"; renderSheet(); return; }
-      return;                                                // autre bâtiment : ignore
-    }
     if(b){ UI.inspect=b.id; UI.selected=null; UI.cell=null; UI.sheet="inspect"; }
     else { UI.cell={r,c}; UI.selected=null; UI.inspect=null; UI.sheet="palette"; }
     renderGrid(); renderSheet();
@@ -1328,18 +938,8 @@ function bind(){
 
   // contenu du bottom-sheet (palette / détail / inspection)
   $("#sheet").addEventListener("click",e=>{
-    if(e.target.closest('[data-act="domove"]')){
-      if(UI.move&&UI.cell) doMove(UI.cell.r,UI.cell.c); return;
-    }
-    if(e.target.closest('[data-act="cancelmove"]') ||
-       (e.target.id==="sheet" && UI.sheet==="movepreview")){
-      UI.sheet=null; $("#sheet").classList.add("hidden"); renderGrid(); return; // reste en mode déplacement
-    }
     if(e.target.id==="sheet"){ closeSheet(); return; }   // tap hors carte
     if(e.target.closest('[data-act="close"]')){ closeSheet(); return; }
-    if(e.target.closest("#moveBtn")){
-      const b=S.buildings.find(x=>x.id===UI.inspect); if(b) startMove(b); return;
-    }
     if(e.target.closest('[data-act="cancel"]')){
       UI.selected=null; UI.sheet="palette"; renderSheet(); return;
     }
