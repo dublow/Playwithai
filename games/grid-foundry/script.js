@@ -421,6 +421,8 @@ function freshState(){
 /* transient UI */
 const UI = {sheet:null, selected:null, inspect:null, cell:null, specPrompted:false};
 let NET = {};            // débit net /sec calculé chaque tick
+let PROD = {};           // production brute /s (pour la page Stats)
+let CONS = {};           // consommation brute /s (pour la page Stats)
 let ACTIVE = {};         // id -> bool (bâtiment actif ce tick)
 let _gridHTML = null;    // cache : évite de réécrire la grille sans changement
 const STARVE_SHOW = 3;   // ticks de pénurie continue avant l'état "à l'arrêt"
@@ -572,7 +574,7 @@ function tick(silent){
     order[b.type]=(order[b.type]||0); b._eff=effFactor(order[b.type]); order[b.type]++;
   });
 
-  NET={}; ACTIVE={};
+  NET={}; PROD={}; CONS={}; ACTIVE={};
   // traitement par tier croissant : un bâtiment de tier bas alimente le tier au-dessus
   const seq=[...S.buildings].sort((a,b)=>
     (BUILDINGS[a.type].tier-BUILDINGS[b.type].tier)||(a.order-b.order));
@@ -593,6 +595,7 @@ function tick(silent){
     for(const k in cons){
       S.stock[k]-=cons[k];
       NET[k]=(NET[k]||0)-cons[k];
+      CONS[k]=(CONS[k]||0)+cons[k];
     }
     if(def.produce){
       for(const k in def.produce){
@@ -600,6 +603,7 @@ function tick(silent){
         S.stock[k]=Math.min(1e9,(S.stock[k]||0)+amt);
         S.total[k]=(S.total[k]||0)+amt;
         NET[k]=(NET[k]||0)+amt;
+        PROD[k]=(PROD[k]||0)+amt;
       }
     }
   }
@@ -717,15 +721,28 @@ function knownResources(){
 function renderResources(){
   const bar=$("#resourceBar");
   bar.innerHTML=knownResources().map(k=>{
-    const R=RESOURCES[k], amt=S.stock[k]||0, n=NET[k]||0;
-    const cls=n>0.0001?"pos":(n<-0.0001?"neg":"zero");
-    const sign=n>0.0001?"+":"";
+    const R=RESOURCES[k];
     return `<div class="chip ${R.cls}">
       <span class="ms">${R.icon}</span>
-      <b>${fmt(amt)}</b>
-      <span class="rate ${cls}">${sign}${(n).toFixed(1)}</span>
+      <b>${fmt(S.stock[k]||0)}</b>
     </div>`;
   }).join("");
+}
+function renderStats(){
+  const res=knownResources();
+  if(!res.length) return `<p class="empty-note">Aucune production pour l'instant.</p>`;
+  let h=`<div class="stat-head"><span>Ressource</span><span>Prod.</span><span>Conso.</span><span>Net</span></div>`;
+  res.forEach(k=>{
+    const p=PROD[k]||0, c=CONS[k]||0, n=p-c;
+    const ncls=n>0.0001?"pos":(n<-0.0001?"neg":"dim");
+    h+=`<div class="stat-row">
+      <span class="nm"><span class="ms">${RESOURCES[k].icon}</span>${rname(k)}</span>
+      <span class="sp">${p>0.0001?"+"+p.toFixed(2):"—"}</span>
+      <span class="sc">${c>0.0001?"-"+c.toFixed(2):"—"}</span>
+      <span class="sn ${ncls}">${n>0.0001?"+":""}${n.toFixed(2)}/s</span>
+    </div>`;
+  });
+  return h;
 }
 function renderResHeader(){
   const hdr=$("#resHeader"), fab=$("#hdrToggle");
@@ -1095,6 +1112,7 @@ function openMenu(){
       <button class="btn mfull" onclick="goHome()">
         <span class="ms">home</span>Retour au menu des jeux</button>
     </div>
+    <div class="sec-title">Statistiques — production /s</div>${renderStats()}
     ${renderGoalsTab(false)}
     ${renderBadges()}`;
   $("#modal").classList.remove("hidden");

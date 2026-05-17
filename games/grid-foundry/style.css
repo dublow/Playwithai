@@ -122,10 +122,22 @@ body{
 }
 .chip .ms{font-size:18px;color:var(--acc2)}
 .chip b{font-weight:600;font-variant-numeric:tabular-nums}
-.chip .rate{font-size:11px;font-variant-numeric:tabular-nums}
-.chip .rate.pos{color:var(--good)} .chip .rate.neg{color:var(--warn)} .chip .rate.zero{color:var(--dim)}
 .chip.t1 .ms{color:#ffb74d}.chip.t2 .ms{color:#7ee7ff}.chip.t3 .ms{color:#c69bff}
 .chip.fin .ms{color:var(--gold)}
+
+/* ---------- Stats (page Réglages) ---------- */
+.stat-head,.stat-row{display:grid;grid-template-columns:1fr 62px 62px 78px;
+  align-items:center;gap:6px;font-size:12px;padding:6px 4px}
+.stat-head{color:var(--dim);font-size:9.5px;letter-spacing:.6px;text-transform:uppercase;
+  border-bottom:1px solid var(--line)}
+.stat-head span:not(:first-child),.stat-row span:not(.nm){text-align:right;
+  font-variant-numeric:tabular-nums}
+.stat-row{border-bottom:1px dashed var(--line)}
+.stat-row .nm{display:flex;align-items:center;gap:7px;min-width:0;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stat-row .nm .ms{font-size:16px;color:var(--acc2);flex:0 0 auto}
+.stat-row .sp{color:var(--good)} .stat-row .sc{color:var(--warn)}
+.stat-row .sn.pos{color:var(--good)} .stat-row .sn.neg{color:var(--warn)} .stat-row .sn.dim{color:var(--dim)}
 
 /* ---------- Buttons ---------- */
 .btn{
