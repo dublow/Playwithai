@@ -68,7 +68,7 @@ const BUILDINGS = {
     desc:"Nourrit et forme des ouvriers.",
     cost:{bois:15,pierre:10}, consume:{nourriture:2,eau:1}, produce:{ouvrier:1}},
   centreville:{name:"Centre-ville",  icon:"location_city",        tier:1, tag:"civic",
-    desc:"Cœur de la colonie. Débloque le Tier 2 et l'expansion 4×4. +10% aux bâtiments Tier 1/2 adjacents.",
+    desc:"Cœur de la colonie. Ouvre l'Ère Industrielle et l'expansion 4×4. +10% aux bâtiments des Ères Pionnière et Industrielle adjacents.",
     cost:{bois:50,pierre:40,brique:20,ouvrier:10}, unlock:2},
 
   forge:      {name:"Forge",         icon:"hardware",             tier:2, tag:"t2",
@@ -81,7 +81,7 @@ const BUILDINGS = {
     desc:"Façonne le métal en outils.",
     cost:{bois:25,metal:15}, consume:{metal:1,bois:1}, produce:{outil:1}},
   hub:        {name:"Hub industriel",icon:"hub",                  tier:2, tag:"civic",
-    desc:"Débloque le Tier 3 et l'expansion 5×5. +10% aux bâtiments industriels adjacents.",
+    desc:"Ouvre l'Ère Avancée et l'expansion 5×5. +10% aux bâtiments industriels adjacents.",
     cost:{metal:40,outil:25,energie:30,brique:20}, unlock:3},
 
   usine:      {name:"Usine",         icon:"factory",              tier:3, tag:"t3",
@@ -134,9 +134,9 @@ const BUILDINGS = {
 };
 
 const BUILD_ORDER = [
-  ["Tier 1 — Base", ["scierie","carriere","puits","ferme","fourneau","briqueterie","cantine","centreville"]],
-  ["Tier 2 — Industrie", ["forge","generateur","atelier","hub"]],
-  ["Tier 3 — Avancé", ["usine","fonderie","circuiterie"]],
+  ["Ère Pionnière", ["scierie","carriere","puits","ferme","fourneau","briqueterie","cantine","centreville"]],
+  ["Ère Industrielle", ["forge","generateur","atelier","hub"]],
+  ["Ère Avancée", ["usine","fonderie","circuiterie"]],
   ["Axe Métal / Technologie", ["labquantique","centrecalcul"]],
   ["Axe Bio / Organisme", ["bioreacteur","labadn","incubateur","chambreevo","nexus"]],
   ["Axe Énergie / Fusion", ["stabilisateur","reacteurplasma","cristalliseur","chambreantimatiere","reacteurstellaire"]],
@@ -362,6 +362,11 @@ const effFactor = i => EFF[Math.min(i, EFF.length - 1)];
 const CAP_SINGLE = 25, CAP_POS = 50, CAP_NEG = 40, CAP_CONS = 40;
 
 const CLICK_BASE  = {bois:3, pierre:3, nourriture:2, eau:3};  // récolte manuelle /tap
+
+/* Univers : la colonie traverse des ÈRES (pas de "Tier X") */
+const ERA   = {1:"Ère Pionnière", 2:"Ère Industrielle", 3:"Ère Avancée"};
+const ROMAN = {1:"I", 2:"II", 3:"III"};
+const eraName = t => ERA[t] || ("Ère "+t);
 const SAVE_KEY = "gridfoundry.v1";
 const OFFLINE_CAP = 600;
 
@@ -611,8 +616,8 @@ function placeBuilding(type,r,c){
   S.nextOrder++;
   if(def.unlock && S.tierUnlocked<def.unlock){
     S.tierUnlocked=def.unlock;
-    log("Palier débloqué : Tier "+def.unlock+" ("+def.name+")","info");
-    toast("Tier "+def.unlock+" débloqué !");
+    log("Nouvelle ère : "+eraName(def.unlock)+" ("+def.name+")","info");
+    toast(eraName(def.unlock)+" — votre colonie progresse !");
   }
   log("Construit : "+def.name);
   UI.selected=null; checkObjectives(false); render();
@@ -707,8 +712,8 @@ function renderResHeader(){
   const {list,idx}=currentObjectives();
   const o=(list.length && idx<list.length)?list[idx]:null;
   $("#resObjective").innerHTML = o
-    ? `<span class="ms">${o.ic}</span><div><span class="lbl">Tier ${S.tierUnlocked} · ${S.gridSize}×${S.gridSize}${S.spec?" · "+SPECS[S.spec].name:""}</span><b>${o.t}</b></div><span class="prog">${o.g?o.g(S):""}</span>`
-    : `<span class="ms">flag</span><div><span class="lbl">Tier ${S.tierUnlocked} · ${S.gridSize}×${S.gridSize}</span><b>Tous les objectifs atteints — bravo !</b></div>`;
+    ? `<span class="ms">${o.ic}</span><div><span class="lbl">${eraName(S.tierUnlocked)} · Colonie ${S.gridSize}×${S.gridSize}${S.spec?" · "+SPECS[S.spec].name:""}</span><b>${o.t}</b></div><span class="prog">${o.g?o.g(S):""}</span>`
+    : `<span class="ms">flag</span><div><span class="lbl">${eraName(S.tierUnlocked)} · Colonie ${S.gridSize}×${S.gridSize}</span><b>Colonie accomplie — bravo !</b></div>`;
 
   const tgt=S.gridSize+1, btn=$("#expandBtn"), e=EXPAND[tgt];
   if(e && expandReady(tgt) && !S.won){
@@ -787,7 +792,7 @@ function renderBuildTab(){
   let h="";
   // choix de spécialisation
   if(S.tierUnlocked>=2 && !S.spec){
-    h+=`<div class="sec-title">Spécialisation (Tier 2)</div>`;
+    h+=`<div class="sec-title">Spécialisation — Ère Industrielle</div>`;
     for(const k in SPECS){
       const sp=SPECS[k];
       h+=`<div class="spec-card" data-spec="${k}">
@@ -811,7 +816,7 @@ function renderBuildTab(){
       if(locked)cl.push("locked"); else if(cant)cl.push("cant");
       h+=`<button class="${cl.join(' ')}" data-build="${k}" ${locked?'data-locked="1"':''}
             title="${d.name}">
-        <span class="pill">T${d.tier}</span>
+        <span class="pill">${ROMAN[d.tier]}</span>
         <span class="ms">${d.icon}</span>
         <small>${d.name}</small>
       </button>`;
@@ -828,12 +833,12 @@ function renderBuildDetail(type){
   let h=`<div class="dtl">
     <div class="sheet-h">
       <button class="back" data-act="cancel"><span class="ms">arrow_back</span></button>
-      <h3><span class="ms">${d.icon}</span>${d.name}<span class="pill">Tier ${d.tier}</span></h3>
+      <h3><span class="ms">${d.icon}</span>${d.name}<span class="pill">${eraName(d.tier)}</span></h3>
     </div>
     <p class="desc">${d.desc}</p>`;
   if(locked){
     h+=`<div class="build-cta warn"><span class="ms">lock</span>
-      <span>Verrouillé — débloquez le Tier ${d.tier} en construisant ${
+      <span>Verrouillé — atteignez l'<b>${eraName(d.tier)}</b> en construisant ${
       d.tier===2?"le <b>Centre-ville</b>":"le <b>Hub industriel</b>"}.</span></div>`;
   } else if(cant){
     h+=`<div class="build-cta warn"><span class="ms">error</span>
@@ -931,17 +936,20 @@ function closeSheet(){
   UI.sheet=null; UI.selected=null; UI.inspect=null; UI.cell=null;
   $("#sheet").classList.add("hidden"); renderGrid();
 }
-function renderGoalsTab(){
-  let h=`<div class="sec-title">Parcours commun</div>`;
-  OBJ_COMMON.forEach((o,i)=>{
-    const st=i<S.objIdx?"done":(i===S.objIdx?"cur":"todo");
-    const ic=st==="done"?"check_circle":(st==="cur"?o.ic:"radio_button_unchecked");
-    h+=`<div class="goal ${st}"><span class="ms">${ic}</span><span>${o.t}</span>
-      <span class="g-prog">${st==="cur"&&o.g?o.g(S):""}</span></div>`;
-  });
+function renderGoalsTab(includeCommon=true){
+  let h="";
+  if(includeCommon){
+    h+=`<div class="sec-title">Progression de la colonie</div>`;
+    OBJ_COMMON.forEach((o,i)=>{
+      const st=i<S.objIdx?"done":(i===S.objIdx?"cur":"todo");
+      const ic=st==="done"?"check_circle":(st==="cur"?o.ic:"radio_button_unchecked");
+      h+=`<div class="goal ${st}"><span class="ms">${ic}</span><span>${o.t}</span>
+        <span class="g-prog">${st==="cur"&&o.g?o.g(S):""}</span></div>`;
+    });
+  }
   if(S.spec){
     const ax=OBJ_AXIS[S.spec];
-    h+=`<div class="sec-title">${SPECS[S.spec].name}</div>`;
+    h+=`<div class="sec-title">Destinée — ${SPECS[S.spec].name}</div>`;
     ax.forEach((o,i)=>{
       const done=S.objIdx>=OBJ_COMMON.length && i<S.axisIdx;
       const cur =S.objIdx>=OBJ_COMMON.length && i===S.axisIdx;
@@ -950,8 +958,8 @@ function renderGoalsTab(){
       h+=`<div class="goal ${st}"><span class="ms">${ic}</span><span>${o.t}</span></div>`;
     });
   } else {
-    h+=`<div class="sec-title">Spécialisation</div>
-    <p class="empty-note">Choisissez un axe au Tier 2 pour révéler<br>la suite des objectifs.</p>`;
+    h+=`<div class="sec-title">Destinée</div>
+    <p class="empty-note">Choisissez un axe à l'Ère Industrielle<br>pour révéler la suite de votre destinée.</p>`;
   }
   return h;
 }
@@ -993,9 +1001,9 @@ function showWin(){
   const ax=SPECS[S.spec].name;
   $("#modalBody").innerHTML=`
     <h2><span class="ms">military_tech</span>Victoire !</h2>
-    <p>Votre civilisation industrielle a atteint sa technologie finale sur l'<b>${ax}</b>.
-       La chaîne de production complète tourne sur votre grille ${S.gridSize}×${S.gridSize}.</p>
-    <p>Vous pouvez continuer à optimiser, ou réinitialiser pour explorer un autre axe.</p>
+    <p>Votre colonie a accompli sa destinée sur l'<b>${ax}</b>.
+       Toute la chaîne de production tourne sur une colonie ${S.gridSize}×${S.gridSize}.</p>
+    <p>Vous pouvez continuer à optimiser, ou repartir pour explorer une autre destinée.</p>
     <div class="row-btn">
       <button class="btn" onclick="closeModal()">Continuer</button>
       <button class="btn danger" onclick="resetGame()">Nouvelle partie</button>
@@ -1020,7 +1028,7 @@ function openMenu(){
       <button class="btn mfull" onclick="goHome()">
         <span class="ms">home</span>Retour au menu des jeux</button>
     </div>
-    <div class="sec-title">Objectifs</div>${renderGoalsTab()}
+    ${renderGoalsTab(false)}
     <div class="sec-title">Journal</div>${renderLogTab()}`;
   $("#modal").classList.remove("hidden");
 }
@@ -1048,7 +1056,7 @@ function showSpec(){
   }
   $("#modalBody").innerHTML=`
     <h2><span class="ms">hub</span>Choisissez votre axe</h2>
-    <p>Au Tier 2, spécialisez votre économie. Ce choix oriente vos objectifs finaux.</p>
+    <p>À l'Ère Industrielle, spécialisez votre colonie. Ce choix oriente votre destinée finale.</p>
     ${cards}`;
   $("#modal").classList.remove("hidden");
 }
