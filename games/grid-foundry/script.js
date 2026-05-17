@@ -388,6 +388,11 @@ let NET = {};            // débit net /sec calculé chaque tick
 let ACTIVE = {};         // id -> bool (bâtiment actif ce tick)
 let _gridHTML = null;    // cache : évite de réécrire la grille sans changement
 const STARVE_SHOW = 3;   // ticks de pénurie continue avant l'état "à l'arrêt"
+/* Cadence type Age of Empires : accumulation lente et régulière.
+   RATE met à l'échelle prod ET conso d'un même facteur -> tous les
+   ratios de recettes/coûts restent intacts, seul le RYTHME ralentit.
+   1.0 = recettes telles quelles ; 0.4 ≈ 1 item / 2,5 s par bâtiment.   */
+const RATE = 0.4;
 
 /* ===================== HELPERS ===================== */
 const $  = s => document.querySelector(s);
@@ -543,7 +548,7 @@ function tick(silent){
 
     // coût de fonctionnement effectif
     const cons={};
-    if(def.consume) for(const k in def.consume) cons[k]=def.consume[k]*consMult(bo,k);
+    if(def.consume) for(const k in def.consume) cons[k]=def.consume[k]*consMult(bo,k)*RATE;
     let ok=true;
     for(const k in cons) if((S.stock[k]||0) < cons[k]){ ok=false; break; }
 
@@ -555,7 +560,7 @@ function tick(silent){
     }
     if(def.produce){
       for(const k in def.produce){
-        const amt=def.produce[k]*prodMult(bo,k)*specMult(k)*b._eff;
+        const amt=def.produce[k]*prodMult(bo,k)*specMult(k)*b._eff*RATE;
         S.stock[k]=Math.min(1e9,(S.stock[k]||0)+amt);
         S.total[k]=(S.total[k]||0)+amt;
         NET[k]=(NET[k]||0)+amt;
@@ -719,6 +724,12 @@ function renderResHeader(){
   const hdr=$("#resHeader"), fab=$("#hdrToggle");
   hdr.classList.toggle("open",!!S.headerOpen);
   fab.classList.toggle("on",!!S.headerOpen);
+  // recadre la grille SOUS le header quand il est ouvert (sinon il la masque)
+  requestAnimationFrame(()=>{
+    const hh = S.headerOpen ? (hdr.offsetHeight||0) : 0;
+    document.documentElement.style.setProperty("--hdrH", hh+"px");
+    fitGrid();
+  });
 
   // objectif courant + palier
   const {list,idx}=currentObjectives();
@@ -842,7 +853,6 @@ function renderBuildDetail(type){
   const d=BUILDINGS[type];
   const locked=d.tier>S.tierUnlocked;
   const cant=!locked && !canAfford(d.cost);
-  const pc=UI.cell;
   let h=`<div class="dtl">
     <div class="sheet-h">
       <button class="back" data-act="cancel"><span class="ms">arrow_back</span></button>
@@ -856,9 +866,6 @@ function renderBuildDetail(type){
   } else if(cant){
     h+=`<div class="build-cta warn"><span class="ms">error</span>
       <span>Ressources insuffisantes — il manque les ressources en <b>rouge</b>.</span></div>`;
-  } else {
-    h+=`<div class="build-cta"><span class="ms">place_item</span>
-      <span>Construire ici${pc?` (case ${pc.r+1},${pc.c+1})`:""} ?</span></div>`;
   }
   h+=ioLine(d.cost,"cost")+ioLine(d.consume,"cons")+ioLine(d.produce,"prod");
   const rules=ADJACENCY[type]||[];
@@ -987,7 +994,11 @@ function fitGrid(){
   const cs=getComputedStyle(g);
   const gap=parseFloat(cs.getPropertyValue("--gap"))||6;
   const pad=parseFloat(cs.getPropertyValue("--pad"))||10;
-  const w=wrap.clientWidth, h=wrap.clientHeight;
+  // espace réellement dispo = boîte de contenu de #gridWrap
+  // (on retire SON padding, qui inclut la hauteur du header quand il est ouvert)
+  const ws=getComputedStyle(wrap);
+  const w=wrap.clientWidth  - parseFloat(ws.paddingLeft) - parseFloat(ws.paddingRight);
+  const h=wrap.clientHeight - parseFloat(ws.paddingTop)  - parseFloat(ws.paddingBottom);
   if(w<=0||h<=0) return;
   const avail=Math.min(w,h)-2*pad-gap*(n-1)-2; /* -2 : bordure */
   let cell=Math.floor(avail/n);

@@ -29,6 +29,9 @@ body{
 #gridWrap{
   position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
   padding:clamp(8px,3.5vw,20px);
+  /* quand le header est ouvert, on réserve sa hauteur en haut pour que le
+     carré reste centré dans l'espace VISIBLE (et non derrière le header) */
+  padding-top:calc(clamp(8px,3.5vw,20px) + var(--hdrH,0px));
 }
 .grid{
   --gap:6px;--pad:10px;
