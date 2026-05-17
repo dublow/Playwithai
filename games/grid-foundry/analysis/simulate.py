@@ -1,290 +1,227 @@
 #!/usr/bin/env python3
 """
-Grid Foundry Simulator
-Simulates runs for each of the 3 axes (Métal, Bio, Énergie).
+Grid Foundry Simulator — reactive smart greedy policy
 
-Rules:
-- RATE = 0.4 tick/s (1 tick = 2.5s real)
-- A building produces only if it has enough resources to cover consumption this tick
-- Diminishing returns: Nth building of same type has factor EFF[min(N-1, 4)]
-- No adjacency bonuses (baseline)
-- Grid expansion is a hard constraint:
-  - 4x4 (max 16) unlockable only after centreville built AND produced bois>=100, pierre>=50, brique>=20, ouvrier>=10
-    cost: brique:30, ouvrier:20, metal:10
-  - 5x5 (max 25) unlockable only after hub built AND produced metal>=1, energie>=1, outil>=1
-    cost: brique:50, ouvrier:30, energie:30, machine:20
-- Greedy policy: at each tick, if stock allows, build the next building in queue
-- Victory condition: produce at least 1 unit of the axis's final resource
+Policy: build the next building in the queue. If blocked on a resource whose
+net production is ≤ 0, insert an extra copy of its producer before retrying.
+
+Game data fixes (applied in script.js):
+  carriere produce:3, puits produce:4, fourneau produce:2
+These ensure net production stays positive on pierre, eau, charbon as more
+buildings are added — the reactive policy then handles cascade deadlocks.
 """
 
 import json
-import copy
 from collections import defaultdict
 
-# Load game data
 with open("/home/ndelfour/projects/github/Playwithai/games/grid-foundry/game-data.json") as f:
     DATA = json.load(f)
 
 BUILDINGS = DATA["BUILDINGS"]
 EFF = DATA["EFF"]
 EXPAND = DATA["EXPAND"]
-RATE = 0.4  # ticks per second (but simulation runs in ticks; 1 tick = 2.5s real)
+RATE = 0.4  # ticks/s — 1 tick = 2.5 s real
 
-# Victory conditions per axis
 VICTORY = {
-    "metal": "ordinateur",
-    "bio": "conscience",
+    "metal":   "ordinateur",
+    "bio":     "conscience",
     "energie": "reacteurStellaire",
 }
 
-# BUILD_ORDER: common prefix + axis-specific suffix
+PRODUCERS = {
+    "bois":             "scierie",
+    "pierre":           "carriere",
+    "eau":              "puits",
+    "nourriture":       "ferme",
+    "charbon":          "fourneau",
+    "brique":           "briqueterie",
+    "ouvrier":          "cantine",
+    "metal":            "forge",
+    "energie":          "generateur",
+    "outil":            "atelier",
+    "machine":          "usine",
+    "alliage":          "fonderie",
+    "circuit":          "circuiterie",
+    "calcul":           "labquantique",
+    "ordinateur":       "centrecalcul",
+    "biomasse":         "bioreacteur",
+    "adn":              "labadn",
+    "cellule":          "incubateur",
+    "organisme":        "chambreevo",
+    "conscience":       "nexus",
+    "energieStable":    "stabilisateur",
+    "plasma":           "reacteurplasma",
+    "cristal":          "cristalliseur",
+    "antimatiere":      "chambreantimatiere",
+    "reacteurStellaire":"reacteurstellaire",
+}
+
+# Common path: 9 buildings for 3×3, then extra extractors before advanced buildings
+# to prevent net-zero deadlocks in the 4×4 phase.
 COMMON_BUILDINGS = [
-    "scierie", "carriere", "puits", "ferme", "fourneau", "briqueterie", "cantine", "centreville",
-    "forge", "generateur", "atelier", "hub",
+    # 3×3 grid (9 slots)
+    "scierie", "carriere", "puits", "ferme", "fourneau", "briqueterie",
+    "cantine", "centreville", "forge",
+    # 4×4 grid: extra extractors first, then converters
+    "carriere",   # pierre net: 3+3−1−1 = +4
+    "fourneau",   # charbon net: 2+2−1−1 = +2 (with generateur)
+    "generateur",
+    "atelier",
+    "forge",      # metal net: 1+1−1(atelier) = +1 before usine
+    "hub",
     "usine",
 ]
 
 AXIS_BUILDINGS = {
-    "metal": ["fonderie", "circuiterie", "labquantique", "centrecalcul"],
-    "bio": ["bioreacteur", "labadn", "incubateur", "chambreevo", "nexus"],
-    "energie": ["fonderie", "stabilisateur", "reacteurplasma", "cristalliseur", "chambreantimatiere", "reacteurstellaire"],
+    "metal":   ["fonderie", "circuiterie", "labquantique", "centrecalcul"],
+    "bio":     ["bioreacteur", "labadn", "incubateur", "chambreevo", "nexus"],
+    "energie": ["fonderie", "stabilisateur", "reacteurplasma", "cristalliseur",
+                "chambreantimatiere", "reacteurstellaire"],
 }
 
-def get_build_order(axis):
-    return COMMON_BUILDINGS + AXIS_BUILDINGS[axis]
+MAX_COPIES = 15
 
-def simulate(axis, max_ticks=500000):
-    """Run simulation for given axis. Returns dict with results."""
-    build_queue = get_build_queue(axis)
 
-    # Stock of resources (float)
-    stock = defaultdict(float)
-    # Total produced (for unlock conditions)
+def net_production(built_instances):
+    net = defaultdict(float)
+    for bldg_id, eff in built_instances:
+        bdef = BUILDINGS[bldg_id]
+        for r, v in bdef.get("produce", {}).items():
+            net[r] += v * eff
+        for r, v in bdef.get("consume", {}).items():
+            net[r] -= v * eff
+    return net
+
+
+def simulate(axis, max_ticks=5_000_000):
+    build_target = COMMON_BUILDINGS + AXIS_BUILDINGS[axis]
+
+    stock = defaultdict(float, {"bois": 60, "pierre": 40, "eau": 20})
     total_produced = defaultdict(float)
-    # Buildings built (list of building ids)
-    built = []
-    # Count per building type (for diminishing returns)
-    type_count = defaultdict(int)
-    # Grid capacity
-    grid_capacity = 9  # 3x3 = 9
-    # Build queue index
-    build_idx = 0
-    # Grid expanded flags
-    expanded_4 = False
-    expanded_5 = False
-    # Expansion pending (tried to expand but couldn't afford yet)
-    # Track when each building was queued vs built
-
-    # Victory tracking
-    victory_tick = None
-
-    # Blocking tracker: for each (resource, building_waiting), count ticks blocked
-    build_wait_start = {}   # build_idx -> tick when we started waiting
-    blocking_ticks = defaultdict(int)  # resource -> ticks blocked
-
-    # State for expansion attempts
-    can_try_expand_4 = False   # set True once centreville built + produced conditions met
-    can_try_expand_5 = False   # set True once hub built + produced conditions met
-    hub_built = False
-    centreville_built = False
-
-    # Track current queue item being waited on
-    current_wait_info = None  # (tick_started, building_id)
-
-    for tick in range(max_ticks):
-        # --- Production phase ---
-        # Each active building produces if it can consume
-        for bldg_id in built:
-            bdef = BUILDINGS[bldg_id]
-            consume = bdef.get("consume", {})
-            produce = bdef.get("produce", {})
-
-            # How many instances of this building type? (already built)
-            # We need to know the index of this specific building instance
-            # We'll apply EFF globally per type: all instances of a type share average?
-            # No: "the Nth building of same type has factor EFF[min(N-1, 4)]"
-            # We'll handle this by tracking each instance separately
-            # Actually built is a list of bldg_ids (with duplicates), so we need instance index
-            pass
-
-        # Better: track instances as list of (bldg_id, instance_idx, eff)
-        # Let me restructure: built is a list of (bldg_id, eff_factor)
-
-        # [Restart with better structure - see below]
-        break
-
-    # --- Proper simulation ---
-    # built_instances: list of (bldg_id, eff)
     built_instances = []
-    stock = defaultdict(float)
-    total_produced = defaultdict(float)
     type_count = defaultdict(int)
     grid_capacity = 9
     expanded_4 = False
     expanded_5 = False
-    hub_built = False
     centreville_built = False
+    hub_built = False
     victory_tick = None
 
-    build_queue = get_build_queue(axis)
-    build_idx = 0
+    main_idx = 0
+    extra_queue = []
 
-    # Blocking tracker
-    # For each tick we're waiting on a build, track which resource is missing
-    blocking_ticks = defaultdict(int)  # resource -> ticks
-    current_wait_building = None  # building_id currently being waited on
-
-    # Grid expansion state
+    blocking_ticks = defaultdict(int)
     produced_enough_for_4 = False
     produced_enough_for_5 = False
-    grid4_unlocked = False  # conditions met but not yet paid
-    grid5_unlocked = False
-
-    # Initial stock from script.js (line 414: stock:{bois:60, pierre:40, eau:20})
-    stock["bois"] = 60
-    stock["pierre"] = 40
-    stock["eau"] = 20
 
     for tick in range(max_ticks):
-        # --- Production phase ---
-        for (bldg_id, eff) in built_instances:
+
+        # ── Production ──────────────────────────────────────────────────────
+        for bldg_id, eff in built_instances:
             bdef = BUILDINGS[bldg_id]
             consume = bdef.get("consume", {})
             produce = bdef.get("produce", {})
-
             if not produce:
                 continue
+            can = all(stock[r] >= v / RATE * eff for r, v in consume.items())
+            if can:
+                for r, v in consume.items():
+                    stock[r] -= v / RATE * eff
+                for r, v in produce.items():
+                    gained = v / RATE * eff
+                    stock[r] += gained
+                    total_produced[r] += gained
 
-            # Check if we can consume
-            can_produce = True
-            for res, amt in consume.items():
-                needed = amt / RATE * eff
-                if stock[res] < needed:
-                    can_produce = False
-                    break
+        # ── Victory ─────────────────────────────────────────────────────────
+        if total_produced[VICTORY[axis]] >= 1.0:
+            victory_tick = tick
+            break
 
-            if can_produce:
-                # Consume
-                for res, amt in consume.items():
-                    stock[res] -= amt / RATE * eff
-                # Produce
-                for res, amt in produce.items():
-                    produced = amt / RATE * eff
-                    stock[res] += produced
-                    total_produced[res] += produced
-
-        # --- Victory check ---
-        if victory_tick is None:
-            win_res = VICTORY[axis]
-            if total_produced[win_res] >= 1.0:
-                victory_tick = tick
-                break
-
-        # --- Check expansion conditions ---
-        # 4x4 expansion
+        # ── Grid expansion ───────────────────────────────────────────────────
         if not expanded_4:
-            if (centreville_built and
-                total_produced["bois"] >= 100 and
-                total_produced["pierre"] >= 50 and
-                total_produced["brique"] >= 20 and
-                total_produced["ouvrier"] >= 10):
+            if (centreville_built
+                    and total_produced["bois"] >= 100
+                    and total_produced["pierre"] >= 50
+                    and total_produced["brique"] >= 20
+                    and total_produced["ouvrier"] >= 10):
                 produced_enough_for_4 = True
-
             if produced_enough_for_4:
-                # Try to pay for expansion
-                cost4 = EXPAND["4"]["cost"]
-                if (stock["brique"] >= cost4["brique"] and
-                    stock["ouvrier"] >= cost4["ouvrier"] and
-                    stock["metal"] >= cost4["metal"]):
-                    stock["brique"] -= cost4["brique"]
-                    stock["ouvrier"] -= cost4["ouvrier"]
-                    stock["metal"] -= cost4["metal"]
+                c = EXPAND["4"]["cost"]
+                if all(stock[r] >= c[r] for r in c):
+                    for r, v in c.items():
+                        stock[r] -= v
                     grid_capacity = 16
                     expanded_4 = True
 
-        # 5x5 expansion
         if not expanded_5:
-            if (hub_built and
-                total_produced["metal"] >= 1 and
-                total_produced["energie"] >= 1 and
-                total_produced["outil"] >= 1):
+            if (hub_built
+                    and total_produced["metal"] >= 1
+                    and total_produced["energie"] >= 1
+                    and total_produced["outil"] >= 1):
                 produced_enough_for_5 = True
-
             if produced_enough_for_5:
-                cost5 = EXPAND["5"]["cost"]
-                if (stock["brique"] >= cost5["brique"] and
-                    stock["ouvrier"] >= cost5["ouvrier"] and
-                    stock["energie"] >= cost5["energie"] and
-                    stock["machine"] >= cost5["machine"]):
-                    stock["brique"] -= cost5["brique"]
-                    stock["ouvrier"] -= cost5["ouvrier"]
-                    stock["energie"] -= cost5["energie"]
-                    stock["machine"] -= cost5["machine"]
+                c = EXPAND["5"]["cost"]
+                if all(stock[r] >= c[r] for r in c):
+                    for r, v in c.items():
+                        stock[r] -= v
                     grid_capacity = 25
                     expanded_5 = True
 
-        # --- Build phase (greedy) ---
-        while build_idx < len(build_queue):
-            next_bldg = build_queue[build_idx]
-            bdef = BUILDINGS[next_bldg]
-            cost = bdef.get("cost", {})
+        # ── Build phase ──────────────────────────────────────────────────────
+        if len(built_instances) >= grid_capacity:
+            continue
 
-            # Check grid capacity
-            if len(built_instances) >= grid_capacity:
-                # Can't build yet - grid full
-                if current_wait_building != next_bldg:
-                    current_wait_building = next_bldg
-                # Track blocking: attribute to "grid_capacity"
-                blocking_ticks["grid_capacity"] += 1
-                break
+        # Pick next building
+        if extra_queue:
+            next_bldg = extra_queue[0]
+            from_extra = True
+        elif main_idx < len(build_target):
+            next_bldg = build_target[main_idx]
+            from_extra = False
+        else:
+            continue
 
-            # Check if we can afford
-            can_build = all(stock[res] >= amt for res, amt in cost.items())
+        bdef = BUILDINGS[next_bldg]
+        cost = bdef.get("cost", {})
+        can_build = all(stock[r] >= cost.get(r, 0) for r in cost)
 
-            if can_build:
-                # Pay cost
-                for res, amt in cost.items():
-                    stock[res] -= amt
-                # Build it
-                n = type_count[next_bldg]
-                eff = EFF[min(n, 4)]
-                type_count[next_bldg] += 1
-                built_instances.append((next_bldg, eff))
-
-                if next_bldg == "centreville":
-                    centreville_built = True
-                if next_bldg == "hub":
-                    hub_built = True
-
-                current_wait_building = None
-                build_idx += 1
-                # Continue loop to try building next one too
+        if can_build:
+            for r, v in cost.items():
+                stock[r] -= v
+            n = type_count[next_bldg]
+            built_instances.append((next_bldg, EFF[min(n, 4)]))
+            type_count[next_bldg] += 1
+            if next_bldg == "centreville":
+                centreville_built = True
+            if next_bldg == "hub":
+                hub_built = True
+            if from_extra:
+                extra_queue.pop(0)
             else:
-                # Can't afford - track blocking resource
-                if current_wait_building != next_bldg:
-                    current_wait_building = next_bldg
+                main_idx += 1
+        else:
+            # Blocked: if net production of the blocking resource is ≤ 0,
+            # insert an extra producer ahead of current target.
+            net = net_production(built_instances)
+            blocked_res = max(
+                ((r, cost[r] - stock[r]) for r in cost if stock[r] < cost[r]),
+                key=lambda x: x[1], default=(None, 0),
+            )
+            if blocked_res[0]:
+                blocking_ticks[blocked_res[0]] += 1
+                r = blocked_res[0]
+                if net.get(r, 0) <= 0 and r in PRODUCERS:
+                    producer = PRODUCERS[r]
+                    if (producer != next_bldg
+                            and type_count.get(producer, 0) < MAX_COPIES
+                            and (not extra_queue or extra_queue[0] != producer)):
+                        extra_queue.insert(0, producer)
 
-                # Which resource is the most limiting?
-                most_blocking = None
-                max_deficit = 0
-                for res, amt in cost.items():
-                    deficit = amt - stock[res]
-                    if deficit > max_deficit:
-                        max_deficit = deficit
-                        most_blocking = res
-                if most_blocking:
-                    blocking_ticks[most_blocking] += 1
-                break
-
-    # Compute results
     if victory_tick is None:
         victory_tick = max_ticks
 
-    real_time_min = victory_tick * 2.5 / 60  # 1 tick = 2.5s
-
-    # Top 3 blocking resources (excluding grid_capacity)
-    resource_blocks = {k: v for k, v in blocking_ticks.items() if k != "grid_capacity"}
-    top_blocking = sorted(resource_blocks.items(), key=lambda x: -x[1])[:3]
+    real_time_min = victory_tick * 2.5 / 60
+    top_blocking = sorted(blocking_ticks.items(), key=lambda x: -x[1])[:3]
 
     return {
         "axis": axis,
@@ -292,13 +229,10 @@ def simulate(axis, max_ticks=500000):
         "real_time_min": real_time_min,
         "buildings_built": len(built_instances),
         "buildings_list": [b for b, _ in built_instances],
+        "type_counts": dict(type_count),
         "top_blocking": top_blocking,
-        "grid_capacity_blocked_ticks": blocking_ticks.get("grid_capacity", 0),
+        "hit_cap": victory_tick == max_ticks,
     }
-
-
-def get_build_queue(axis):
-    return COMMON_BUILDINGS + AXIS_BUILDINGS[axis]
 
 
 def main():
@@ -307,42 +241,44 @@ def main():
         print(f"Simulating axis: {axis}...")
         r = simulate(axis)
         results[axis] = r
-        print(f"  Victory tick: {r['victory_tick']}")
-        print(f"  Real time: {r['real_time_min']:.1f} min")
-        print(f"  Buildings built: {r['buildings_built']}")
-        print(f"  Top blocking resources: {r['top_blocking']}")
-        print(f"  Grid capacity blocked ticks: {r['grid_capacity_blocked_ticks']}")
+        status = "CAP HIT" if r["hit_cap"] else f"victory at tick {r['victory_tick']}"
+        print(f"  Status        : {status}")
+        print(f"  Real time     : {r['real_time_min']:.1f} min")
+        print(f"  Buildings     : {r['buildings_built']}")
+        print(f"  Top blocking  : {r['top_blocking']}")
+        counts = sorted(r["type_counts"].items(), key=lambda x: -x[1])
+        multiples = [(b, n) for b, n in counts if n > 1]
+        if multiples:
+            print("  Multi-copy    : " + ", ".join(f"{b}×{n}" for b, n in multiples))
         print()
+
+    print("\n=== SUMMARY TABLE ===")
+    print(f"{'Axe':<10} {'Bâtiments':>12} {'Ticks':>12} {'Temps réel':>12} {'Bloquant'}")
+    print("-" * 65)
+    for axis, r in results.items():
+        top_res = r["top_blocking"][0][0] if r["top_blocking"] else "—"
+        cap = " (cap)" if r["hit_cap"] else ""
+        print(f"{axis:<10} {r['buildings_built']:>12} {r['victory_tick']:>12}{cap:6} "
+              f"{r['real_time_min']:>10.1f}m   {top_res}")
+
+    print("\n=== VICTORY TIME COMPARISON ===")
+    finished = {ax: r["real_time_min"] for ax, r in results.items() if not r["hit_cap"]}
+    if len(finished) >= 2:
+        fastest = min(finished, key=finished.get)
+        slowest = max(finished, key=finished.get)
+        ratio = finished[slowest] / finished[fastest]
+        print(f"Fastest : {fastest} ({finished[fastest]:.1f} min)")
+        print(f"Slowest : {slowest} ({finished[slowest]:.1f} min)")
+        print(f"Ratio   : {ratio:.2f}x — "
+              f"{'one axis >20% faster' if ratio > 1.2 else 'axes balanced (<20% spread)'}")
+    elif len(finished) == 1:
+        ax = list(finished.keys())[0]
+        print(f"Only {ax} reached victory ({finished[ax]:.1f} min). Others hit cap.")
+    else:
+        print("No axis reached victory within cap.")
 
     return results
 
 
 if __name__ == "__main__":
-    results = main()
-
-    # Print summary table
-    print("\n=== SUMMARY TABLE ===")
-    print(f"{'Axe':<10} {'Bâtiments':>12} {'Ticks victoire':>16} {'Temps réel':>12} {'Ressource bloquante'}")
-    print("-" * 75)
-    for axis, r in results.items():
-        top_res = r["top_blocking"][0][0] if r["top_blocking"] else "N/A"
-        print(f"{axis:<10} {r['buildings_built']:>12} {r['victory_tick']:>16} {r['real_time_min']:>10.1f}m   {top_res}")
-
-    print("\n=== TOP 3 BLOCKING RESOURCES PER AXIS ===")
-    for axis, r in results.items():
-        print(f"\n{axis}:")
-        for res, ticks in r["top_blocking"]:
-            print(f"  {res}: {ticks} ticks d'attente")
-
-    print("\n=== VICTORY TIME COMPARISON ===")
-    times = {ax: r["real_time_min"] for ax, r in results.items()}
-    fastest = min(times, key=times.get)
-    slowest = max(times, key=times.get)
-    ratio = times[slowest] / times[fastest]
-    print(f"Fastest: {fastest} ({times[fastest]:.1f} min)")
-    print(f"Slowest: {slowest} ({times[slowest]:.1f} min)")
-    print(f"Ratio slowest/fastest: {ratio:.2f}x")
-    if ratio > 1.2:
-        print(f"=> {fastest} is more than 20% faster than {slowest}")
-    else:
-        print(f"=> No axis is >20% faster than another")
+    main()

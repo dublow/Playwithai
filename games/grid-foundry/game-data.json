@@ -156,7 +156,7 @@
         "pierre": 5
       },
       "produce": {
-        "pierre": 2
+        "pierre": 3
       }
     },
     "puits": {
@@ -169,7 +169,7 @@
         "pierre": 8
       },
       "produce": {
-        "eau": 2
+        "eau": 4
       }
     },
     "ferme": {
@@ -200,7 +200,7 @@
         "bois": 1
       },
       "produce": {
-        "charbon": 1
+        "charbon": 2
       }
     },
     "briqueterie": {
