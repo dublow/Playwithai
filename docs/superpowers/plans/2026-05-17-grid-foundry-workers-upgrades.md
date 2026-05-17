@@ -22,6 +22,229 @@
 
 ---
 
+## Task 0 — script.js : audit et nettoyage (avant toute implémentation)
+
+**Files:**
+- Modify: `games/grid-foundry/script.js`
+
+Cette tâche supprime tout le code devenu inutile avec le nouveau design. À faire en premier pour avoir un fichier propre avant d'ajouter les nouvelles mécaniques.
+
+### 0A — Supprimer les constantes adjacence et le bloc ADJACENCY/CHAINS
+
+- [ ] **Step 1 : Supprimer les caps d'adjacence**
+
+Supprimer la ligne :
+```js
+const CAP_SINGLE = 25, CAP_POS = 50, CAP_NEG = 40, CAP_CONS = 40;
+```
+
+- [ ] **Step 2 : Supprimer ADJACENCY**
+
+Supprimer le bloc entier `const ADJACENCY = { ... };` (lignes ~148–274 dans la version actuelle). Il commence par `const ADJACENCY = {` et se termine par `};` suivi de `/* Centre-ville / Hub...*/`.
+
+- [ ] **Step 3 : Supprimer CHAINS**
+
+Supprimer le bloc entier `const CHAINS = [ ... ];` (lignes ~279–285).
+
+### 0B — Supprimer le moteur d'adjacence
+
+- [ ] **Step 4 : Supprimer computeBonuses()**
+
+Supprimer la fonction `computeBonuses(list)` complète (~lignes 469–549). Elle commence par `function computeBonuses(list){` et se termine par `}`.
+
+- [ ] **Step 5 : Supprimer prodMult() et consMult()**
+
+Supprimer les deux fonctions (~lignes 551–559) :
+```js
+function prodMult(bonus,res){ ... }
+function consMult(bonus,res){ ... }
+```
+
+### 0C — Supprimer la feature de déplacement
+
+- [ ] **Step 6 : Supprimer les fonctions move**
+
+Supprimer dans l'ordre (chacune est un bloc `function ... { ... }`) :
+- `primaryRes(type)` (1 ligne)
+- `multMap(list)` (~7 lignes)
+- `baseList()` (1 ligne)
+- `listWithMoverAt(r,c)` (3 lignes)
+- `previewMove(r,c)` (~12 lignes)
+- `startMove(b)` (~6 lignes)
+- `cancelMove()` (1 ligne)
+- `doMove(r,c)` (~8 lignes)
+- `renderMovePreview(r,c)` (~35 lignes)
+
+- [ ] **Step 7 : Retirer UI.move de l'objet UI**
+
+```js
+// AVANT
+const UI = {sheet:null, selected:null, inspect:null, cell:null, specPrompted:false, move:null};
+// APRÈS
+const UI = {sheet:null, selected:null, inspect:null, cell:null, specPrompted:false};
+```
+
+- [ ] **Step 8 : Nettoyer bind() — long-press et handlers move**
+
+Dans `bind()`, supprimer :
+- Les 4 lignes de variables long-press : `let lpT=null, lpXY=null, suppress=false;` et `const clearLP=...`
+- `grid.addEventListener("contextmenu",...)` (preventDefault pour long-press)
+- `grid.addEventListener("pointerdown",...)` (déclencheur long-press)
+- `grid.addEventListener("pointermove",...)` (détection mouvement)
+- `["pointerup","pointercancel","pointerleave"].forEach(...)` (clearLP)
+- Dans le handler `grid.addEventListener("click",...)`, supprimer le bloc `if(suppress){...}` et le bloc `if(UI.move){...}` (3 branches)
+- Dans le handler `$("#sheet").addEventListener("click",...)`, supprimer :
+  - `if(e.target.closest('[data-act="domove"]')){...}` (handler doMove)
+  - `if(e.target.closest('[data-act="cancelmove"]') || ...){...}` (handler cancelMove)
+  - `if(e.target.closest("#moveBtn")){...}` (handler startMove)
+- Dans `resetGame()`, supprimer `UI.move=null;`
+
+### 0D — Nettoyer renderGrid()
+
+- [ ] **Step 9 : Supprimer BMAP, MV, mtag, losetag dans renderGrid()**
+
+Dans `renderGrid()`, supprimer ou remplacer :
+
+```js
+// Supprimer ces lignes :
+const BMAP=computeBonuses(S.buildings.map(b=>({id:b.id,type:b.type,r:b.r,c:b.c})));
+let MV=null;
+if(UI.move){ ... }  // bloc complet MV
+
+// Dans la boucle des cellules remplies, supprimer :
+let m=1;
+if(d.produce){
+  const k=Object.keys(d.produce)[0];
+  m=prodMult(BMAP[b.id],k)*specMult(k)*(b._eff||1);
+}
+// et supprimer :
+if(b.id===UI.move.id) cls.push("moving");
+else if(MV.baseM[b.id]!=null && ...) { cls.push("losing"); ... }
+let losetag="";
+// et supprimer mtag :
+let mtag="";
+if(d.produce && !b.paused){ ... }
+// et remplacer dans le html :
+${mtag}${losetag}
+// par rien pour l'instant (crew% ajouté en Task 9)
+
+// Dans les cellules vides, supprimer le bloc else if(MV) :
+} else if(MV){
+  ...
+  html+=`<div class="cell empty drop" data-c="${key}">${dtag}</div>`;
+}
+```
+
+- [ ] **Step 10 : Commit nettoyage**
+
+```bash
+git add games/grid-foundry/script.js
+git commit -m "refactor: remove adjacency engine, move feature, dead code (pre-workers redesign)"
+```
+
+### 0E — Mettre à jour les références à ouvrier et sections adjacence dans l'UI
+
+- [ ] **Step 11 : Mettre à jour SPECS.bio**
+
+```js
+// AVANT
+bio: {name:"Axe Bio / Organisme", icon:"biotech",
+  mods:{nourriture:1.20,ouvrier:1.20,biomasse:1.15,charbon:0.90},
+  txt:[["nourriture",20],["ouvrier",20],["biomasse",15],["charbon",-10]]},
+// APRÈS
+bio: {name:"Axe Bio / Organisme", icon:"biotech",
+  mods:{nourriture:1.20,equipe:1.20,biomasse:1.15,charbon:0.90},
+  txt:[["nourriture",20],["equipe",20],["biomasse",15],["charbon",-10]]},
+```
+
+- [ ] **Step 12 : Mettre à jour l'objectif "Produire des ouvriers" dans OBJ_COMMON**
+
+```js
+// AVANT
+{ic:"engineering", t:"Produire des ouvriers", f:s=>s.total.ouvrier>=10, g:s=>`${fmt(s.total.ouvrier||0)}/10`},
+// APRÈS
+{ic:"construction", t:"Former des bâtisseurs", f:s=>(s.workers?.batisseurs||0)+(s.total?.batisseur||0)>=10,
+  g:s=>`${fmt((s.workers?.batisseurs||0)+(s.total?.batisseur||0))}/10`},
+```
+
+- [ ] **Step 13 : Mettre à jour expandReady() — ouvrier → batisseur**
+
+```js
+// Dans expandReady(), la vérification de EXPAND[4].need.produced
+// contient ouvrier:10 dans game-data.json — sera mis à jour en Task 1 Step 5.
+// Aucun changement nécessaire dans expandReady() lui-même car il lit
+// dynamiquement e.need.produced depuis EXPAND.
+```
+
+- [ ] **Step 14 : Mettre à jour renderInspect() — retirer adjacence, eff, prodMult**
+
+Remplacer dans `renderInspect(b)` :
+```js
+// Supprimer ces lignes :
+const bonus=computeBonuses(S.buildings.map(x=>({id:x.id,type:x.type,r:x.r,c:x.c})));
+const bo=bonus[b.id];
+const eff=b._eff||1;
+
+// Remplacer le bloc production par (sans adjacence) :
+if(d.produce) for(const k in d.produce){
+  const pf = prodFactor(b);  // défini en Task 6
+  h+=`<div class="kv"><span>Production ${rname(k)}</span>
+    <b class="pos">${(d.produce[k]*pf*RATE).toFixed(2)}/s (${Math.round(pf*100)}% équipe)</b></div>`;
+}
+if(d.consume) for(const k in d.consume){
+  const pf = prodFactor(b);
+  h+=`<div class="kv"><span>Conso ${rname(k)}</span>
+    <b class="neg">-${(d.consume[k]*pf*RATE).toFixed(2)}/s</b></div>`;
+}
+
+// Supprimer entièrement la section "Voisinage" :
+const rules=ADJACENCY[b.type]||[];
+if(rules.length){ ... }
+
+// Supprimer le bouton "Déplacer" et le tooltip :
+<button class="btn" id="moveBtn">...</button>
+<p class="empty-note" ...>Astuce : appui long...</p>
+```
+
+- [ ] **Step 15 : Mettre à jour renderBuildDetail() — retirer adjacence et chaînes**
+
+```js
+// Supprimer entièrement :
+const rules=ADJACENCY[type]||[];
+if(rules.length){ h+=`<div class="sec-title">Voisinage possible</div>...`; }
+
+const chs=CHAINS.filter(c=>c.mid===type||c.a===type||c.c===type);
+if(chs.length){ h+=`<div class="sec-title">Chaînes</div>...`; }
+```
+
+- [ ] **Step 16 : Mettre à jour destroyBuilding() — rembourser l'équipe**
+
+```js
+function destroyBuilding(b){
+  const def=BUILDINGS[b.type];
+  // Rembourser les ressources (50%)
+  for(const k in def.cost){
+    S.stock[k]=(S.stock[k]||0)+Math.floor(def.cost[k]*0.5);
+  }
+  // Rembourser l'équipe affectée dans le pool
+  if(b.crew && b.crew > 0){
+    S.workers.equipe = (S.workers.equipe||0) + b.crew;
+  }
+  S.buildings=S.buildings.filter(x=>x.id!==b.id);
+  log("Démoli : "+def.name+" (remboursement 50%)", "warn");
+  UI.inspect=null; checkObjectives(false); render();
+}
+```
+
+- [ ] **Step 17 : Commit nettoyage UI**
+
+```bash
+git add games/grid-foundry/script.js
+git commit -m "refactor: update UI refs — remove ouvrier, adjacency sections, move button"
+```
+
+---
+
 ## Task 1 — game-data.json : modèle de données workers + upgrades
 
 **Files:**
