@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#1a0f04" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="description" content="Temple Raiders — a 1990s Indiana-Jones-style pinball machine, playable on mobile." />
+<title>Temple Raiders — Indiana-style Pinball '93</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%231a0f04'/%3E%3Ccircle cx='16' cy='13' r='6' fill='%23f5c542'/%3E%3Crect x='12' y='17' width='8' height='9' fill='%23c8941f'/%3E%3Crect x='13' y='9' width='2' height='3' fill='%237a4d0a'/%3E%3Crect x='17' y='9' width='2' height='3' fill='%237a4d0a'/%3E%3C/svg%3E" />
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%231a0f04'/%3E%3Ccircle cx='16' cy='13' r='6' fill='%23f5c542'/%3E%3Crect x='12' y='17' width='8' height='9' fill='%23c8941f'/%3E%3C/svg%3E" />
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;
+    -webkit-user-select:none;user-select:none;}
+  html,body{height:100%;overflow:hidden;background:#0a0602;
+    font-family:"Courier New",ui-monospace,Menlo,Consolas,monospace;}
+  #game{position:fixed;inset:0;display:block;touch-action:none;
+    background:#0a0602;image-rendering:optimizeSpeed;}
+  /* CRT scanline + vignette overlay for that 90s arcade look */
+  #crt{position:fixed;inset:0;pointer-events:none;z-index:5;
+    background:
+      repeating-linear-gradient(0deg,rgba(0,0,0,0) 0 2px,rgba(0,0,0,.16) 2px 4px),
+      radial-gradient(120% 90% at 50% 45%,rgba(0,0,0,0) 55%,rgba(0,0,0,.55) 100%);
+    mix-blend-mode:multiply;}
+  .ovl{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;text-align:center;z-index:20;padding:26px;color:#ffdf8a;
+    background:radial-gradient(120% 90% at 50% 30%,rgba(58,32,8,.94),rgba(8,5,2,.98));}
+  .ovl.hide{display:none;}
+  .badge{display:inline-block;border:2px solid #f5c542;color:#f5c542;font-size:11px;
+    font-weight:700;letter-spacing:3px;padding:5px 12px;border-radius:4px;margin-bottom:16px;}
+  .ovl h1{font-size:40px;line-height:1;letter-spacing:3px;color:#f5c542;
+    text-shadow:0 0 12px rgba(245,197,66,.7),0 4px 0 #6b3d05;margin-bottom:6px;}
+  .ovl h2{font-size:22px;color:#ff8a3c;letter-spacing:2px;margin-bottom:14px;
+    text-shadow:0 0 8px rgba(255,138,60,.6);}
+  .ovl p{color:#e8c98a;max-width:400px;line-height:1.6;font-size:14px;margin-bottom:8px;}
+  .ovl .keys{font-size:12px;color:#b08a4a;margin-top:4px;line-height:1.7;}
+  .ovl button{margin-top:20px;background:#f5c542;color:#3a2208;border:0;border-radius:8px;
+    padding:15px 36px;font-size:18px;font-weight:800;letter-spacing:2px;cursor:pointer;
+    box-shadow:0 5px 0 #8a5c0a;font-family:inherit;}
+  .ovl button:active{transform:translateY(4px);box-shadow:0 1px 0 #8a5c0a;}
+  .blink{animation:bl 1s steps(2,start) infinite;}
+  @keyframes bl{50%{opacity:.25;}}
+  #res{font-size:15px;color:#ffdf8a;line-height:1.9;margin:6px 0 2px;}
+  #res b{color:#f5c542;}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="crt"></div>
+
+<div id="start" class="ovl">
+  <div class="badge">INSERT COIN · 1993</div>
+  <h1>TEMPLE RAIDERS</h1>
+  <h2>◆ PINBALL ◆</h2>
+  <p>The Golden Idol sleeps deep in the temple. Keep the silver ball alive,
+     light the <b>I&nbsp;D&nbsp;O&nbsp;L</b> targets and shoot the left
+     orbit to escape with the treasure.</p>
+  <p class="keys">
+     ◀ Left flipper: <b>tap left side</b> / A / ◀<br/>
+     ▶ Right flipper: <b>tap right side</b> / D / ▶<br/>
+     Launch ball: hold <b>LAUNCH</b> / Space — release to fire
+  </p>
+  <button id="startBtn" type="button">PRESS START</button>
+</div>
+
+<div id="over" class="ovl hide">
+  <div class="badge">GAME OVER</div>
+  <h1>TEMPLE SEALED</h1>
+  <div id="res"></div>
+  <button id="againBtn" type="button">PLAY AGAIN</button>
+</div>
+
+<script>
+"use strict";
+(function(){
+/* ===================================================================== *
+ *  TEMPLE RAIDERS  —  a 90s Indiana-Jones-style pinball machine          *
+ *  Pure canvas, no deps. Virtual playfield 480 x 820, scaled to screen.  *
+ * ===================================================================== */
+
+const W = 480, H = 820;
+const cv = document.getElementById("game");
+const ctx = cv.getContext("2d");
+
+let scale = 1, ox = 0, oy = 0, dpr = 1;
+function resize(){
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const ww = window.innerWidth, wh = window.innerHeight;
+  scale = Math.min(ww / W, wh / H);
+  ox = (ww - W * scale) / 2;
+  oy = (wh - H * scale) / 2;
+  cv.width  = Math.round(ww * dpr);
+  cv.height = Math.round(wh * dpr);
+  cv.style.width  = ww + "px";
+  cv.style.height = wh + "px";
+}
+window.addEventListener("resize", resize);
+resize();
+
+/* -------- tiny WebAudio SFX ---------------------------------------- */
+let AC = null;
+function audio(){ if(!AC){ try{ AC = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ AC=false; } } return AC; }
+function beep(freq, dur, type, vol, slideTo){
+  const ac = audio(); if(!ac) return;
+  const t = ac.currentTime;
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = type || "square";
+  o.frequency.setValueAtTime(freq, t);
+  if(slideTo) o.frequency.exponentialRampToValueAtTime(slideTo, t + dur);
+  g.gain.setValueAtTime(vol || 0.12, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(g).connect(ac.destination);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+const SFX = {
+  flip(){ beep(150, .05, "square", .08); },
+  bump(){ beep(180, .12, "square", .14, 90); },
+  sling(){ beep(520, .09, "sawtooth", .12, 880); },
+  tgt(){ beep(720, .08, "triangle", .14, 1040); },
+  lane(){ beep(420, .07, "triangle", .1, 760); },
+  launch(){ beep(120, .35, "sawtooth", .14, 540); },
+  drain(){ beep(220, .5, "sawtooth", .16, 60); },
+  idol(){ [523,659,784,1046].forEach((f,i)=>setTimeout(()=>beep(f,.16,"square",.14),i*90)); },
+  jackpot(){ [392,523,659,784,1046,1318].forEach((f,i)=>setTimeout(()=>beep(f,.18,"square",.15),i*80)); }
+};
+
+/* -------- vector / geometry helpers -------------------------------- */
+const clamp = (v,a,b)=> v<a?a : v>b?b : v;
+const lerp  = (a,b,t)=> a + (b-a)*t;
+function closestOnSeg(px,py, ax,ay, bx,by){
+  const abx=bx-ax, aby=by-ay;
+  const len2 = abx*abx + aby*aby || 1e-6;
+  let t = ((px-ax)*abx + (py-ay)*aby) / len2;
+  t = clamp(t,0,1);
+  return { x: ax+abx*t, y: ay+aby*t, t };
+}
+
+/* ===================================================================== *
+ *  TABLE GEOMETRY                                                       *
+ * ===================================================================== */
+const segments = [];   // {ax,ay,bx,by,e,nx,ny}
+const bumpers  = [];   // {x,y,r,flash}
+const slings   = [];   // {ax,ay,bx,by,nx,ny,flash}
+let targets    = [];    // IDOL drop targets
+const lanes    = [];   // {x,y,r,letter,lit} top rollover lanes (A B C)
+
+function seg(ax,ay,bx,by,opt){
+  opt = opt || {};
+  let nx = -(by-ay), ny = (bx-ax);
+  const l = Math.hypot(nx,ny)||1; nx/=l; ny/=l;
+  segments.push({ ax,ay,bx,by, e: opt.e!=null?opt.e:0.34, nx, ny });
+}
+
+function buildTable(){
+  segments.length = 0; bumpers.length = 0; slings.length = 0;
+  lanes.length = 0;
+
+  /* outer walls */
+  seg(44,150, 44,812);                    // left outer
+  seg(452,118, 452,812);                  // right outer (plunger lane)
+
+  /* dome ceiling (ellipse arc, left attach -> opening above plunger) */
+  const cx=240, baseY=150, Rx=196, Ry=104;
+  const phiEnd = Math.acos((418-cx)/Rx);  // where x = 418
+  let prev=null, steps=20;
+  for(let i=0;i<=steps;i++){
+    const phi = lerp(Math.PI, phiEnd, i/steps);
+    const x = cx + Rx*Math.cos(phi);
+    const y = baseY - Ry*Math.sin(phi);
+    if(prev) seg(prev.x,prev.y, x,y, {e:0.3});
+    prev = {x,y};
+  }
+  /* short lane ceiling deflecting the launched ball into the dome gap */
+  seg(452,118, 424,108, {e:0.3});
+
+  /* inner wall splitting playfield from the plunger lane (the chute);
+     the launched ball is fed over the top into the dome in physics() */
+  seg(418,210, 418,548);
+
+  /* lower funnel — channels every ball down onto the flipper faces;
+     the only way out is the drain gap between the two flipper tips */
+  seg(44,548, 165,700, {e:0.26});         // left inlane slope -> L flipper
+  seg(418,548, 315,700, {e:0.26});        // right inlane slope -> R flipper
+
+  /* slingshots (bouncy kickers that sit above each flipper and also
+     plug the pivot gap so balls can't sneak past on the outside) */
+  function sling(ax,ay,bx,by){
+    let nx=-(by-ay), ny=(bx-ax); const l=Math.hypot(nx,ny); nx/=l; ny/=l;
+    if(nx<0){ nx=-nx; ny=-ny; }            // face inward (toward centre)
+    slings.push({ax,ay,bx,by,nx,ny,flash:0});
+  }
+  sling(110,632, 168,702);                 // left slingshot
+  sling(370,632, 312,702);                 // right slingshot
+
+  /* pop bumpers (idol heads) */
+  bumpers.push({x:168,y:332,r:25,flash:0});
+  bumpers.push({x:300,y:300,r:25,flash:0});
+  bumpers.push({x:238,y:222,r:23,flash:0});
+
+  /* I-D-O-L drop-target bank, flush to the left wall */
+  targets = ["I","D","O","L"].map((ch,i)=>({
+    x:80, y:386 + i*54, w:11, h:40, ch, lit:false, flash:0
+  }));
+
+  /* top rollover lanes A B C (light bonus / loop) */
+  ["A","B","C"].forEach((ch,i)=>{
+    lanes.push({ x:130 + i*72, y:188, r:15, letter:ch, lit:false });
+  });
+}
+buildTable();
+
+/* ===================================================================== *
+ *  GAME STATE                                                           *
+ * ===================================================================== */
+const G = {
+  state:"attract",     // attract | ready | play | ballend | over
+  score:0, hi: +(localStorage.getItem("tr_hi")||0),
+  balls:3, ball:1, mult:1,
+  idolDone:0,          // how many IDOL banks completed
+  loopLit:false, loopFlash:0,
+  saveTimer:0,         // ball-save grace
+  shake:0,
+  msg:"", msgT:0, sub:""
+};
+function setMsg(m, sub, secs){
+  G.msg = m; G.sub = sub||""; G.msgT = secs||2.4;
+}
+
+/* the ball */
+const ball = { x:435, y:786, vx:0, vy:0, r:11, live:false, inLane:false };
+function resetBallToPlunger(){
+  ball.x=435; ball.y=786; ball.vx=0; ball.vy=0; ball.live=false;
+  ball.inLane=false;
+  plunger.power=0;
+}
+
+/* flippers — capsule from pivot, rotating between rest & up angles */
+function makeFlipper(px,py,len,rest,up){
+  return { px,py,len, rest,up, ang:rest, omega:0, held:false, fr:8 };
+}
+const flipL = makeFlipper(165,700, 70,  0.50, -0.28);
+const flipR = makeFlipper(315,700, 70,  Math.PI-0.50, Math.PI+0.28);
+
+/* plunger */
+const plunger = { power:0, charging:false };
+
+/* ===================================================================== *
+ *  INPUT                                                                *
+ * ===================================================================== */
+const pointers = new Map();   // id -> "L" | "R" | "P"
+const launchBtn = { x:300, y:778, w:150, h:40 };  // shown only when ready
+
+function inLaunch(vx,vy){
+  return G.state==="ready" &&
+         vx>launchBtn.x && vx<launchBtn.x+launchBtn.w &&
+         vy>launchBtn.y && vy<launchBtn.y+launchBtn.h;
+}
+function toV(e){
+  return { x:(e.clientX-ox)/scale, y:(e.clientY-oy)/scale };
+}
+function pointerDown(id, vx, vy){
+  if(audio() && AC.state==="suspended") AC.resume();
+  if(G.state==="ready" && (inLaunch(vx,vy) || vy>740)){
+    pointers.set(id,"P"); plunger.charging=true; return;
+  }
+  const side = vx < W/2 ? "L" : "R";
+  pointers.set(id, side);
+  if(side==="L"){ flipL.held=true; } else { flipR.held=true; }
+  SFX.flip();
+}
+function pointerUp(id){
+  const role = pointers.get(id);
+  pointers.delete(id);
+  if(role==="P"){ firePlunger(); plunger.charging=false; return; }
+  // flipper still held if another active pointer on same side
+  const stillL = [...pointers.values()].includes("L");
+  const stillR = [...pointers.values()].includes("R");
+  flipL.held = stillL; flipR.held = stillR;
+}
+cv.addEventListener("pointerdown", e=>{ e.preventDefault(); const v=toV(e); pointerDown(e.pointerId,v.x,v.y); });
+cv.addEventListener("pointerup",   e=>{ e.preventDefault(); pointerUp(e.pointerId); });
+cv.addEventListener("pointercancel", e=>{ pointerUp(e.pointerId); });
+cv.addEventListener("contextmenu", e=> e.preventDefault());
+
+addEventListener("keydown", e=>{
+  if(["ArrowLeft","ArrowRight","ArrowDown","ArrowUp"," ","Space"].includes(e.key)) e.preventDefault();
+  if(e.repeat) return;
+  const k = e.key.toLowerCase();
+  if(k==="arrowleft"||k==="a"||k==="z"){ flipL.held=true; SFX.flip(); }
+  if(k==="arrowright"||k==="d"||k==="m"){ flipR.held=true; SFX.flip(); }
+  if(k===" "||k==="arrowdown"){
+    if(G.state==="ready") plunger.charging=true;
+    else if(G.state==="attract"||G.state==="over") startGame();
+  }
+  if(k==="enter") if(G.state==="attract"||G.state==="over") startGame();
+});
+addEventListener("keyup", e=>{
+  const k = e.key.toLowerCase();
+  if(k==="arrowleft"||k==="a"||k==="z") flipL.held=false;
+  if(k==="arrowright"||k==="d"||k==="m") flipR.held=false;
+  if(k===" "||k==="arrowdown"){ if(plunger.charging){ firePlunger(); plunger.charging=false; } }
+});
+
+document.getElementById("startBtn").addEventListener("click", startGame);
+document.getElementById("againBtn").addEventListener("click", startGame);
+
+/* ===================================================================== *
+ *  GAME FLOW                                                            *
+ * ===================================================================== */
+function startGame(){
+  if(audio() && AC.state==="suspended") AC.resume();
+  document.getElementById("start").classList.add("hide");
+  document.getElementById("over").classList.add("hide");
+  G.state="ready"; G.score=0; G.balls=3; G.ball=1; G.mult=1;
+  G.idolDone=0; G.loopLit=false; G.loopFlash=0;
+  targets.forEach(t=> t.lit=false);
+  lanes.forEach(l=> l.lit=false);
+  resetBallToPlunger();
+  setMsg("BALL 1", "RAID THE TEMPLE", 2.4);
+}
+function newBall(){
+  if(G.balls<=0){ gameOver(); return; }
+  G.ball = 4 - G.balls;
+  G.mult = 1;
+  targets.forEach(t=> t.lit=false);
+  resetBallToPlunger();
+  G.state="ready";
+  setMsg("BALL "+G.ball, G.balls===1?"LAST BALL!":"PLUNGE TO PLAY", 2.2);
+}
+function gameOver(){
+  G.state="over";
+  if(G.score>G.hi){ G.hi=G.score; localStorage.setItem("tr_hi",G.hi); }
+  document.getElementById("res").innerHTML =
+    "SCORE &nbsp;<b>"+G.score.toLocaleString()+"</b><br/>"+
+    "BEST &nbsp;&nbsp;<b>"+G.hi.toLocaleString()+"</b>";
+  document.getElementById("over").classList.remove("hide");
+}
+function firePlunger(){
+  if(G.state!=="ready" || ball.live) return;
+  const p = clamp(plunger.power,0.12,1);
+  // even a soft plunge must clear the lane and reach the dome;
+  // power then governs how fast the ball whips round the top
+  ball.vy = -lerp(1340, 1560, p);
+  ball.vx = -18;
+  ball.live = true;
+  ball.inLane = true;
+  G.state = "play";
+  G.saveTimer = 7;
+  plunger.power = 0;
+  SFX.launch();
+  setMsg("RAID!", "", 1.0);
+}
+function addScore(n){ G.score += Math.round(n * G.mult); }
+
+function loseBall(){
+  if(G.saveTimer>0){
+    setMsg("BALL SAVED", "PLUNGE AGAIN", 1.8);
+    resetBallToPlunger(); G.state="ready"; G.saveTimer=0; return;
+  }
+  SFX.drain();
+  G.shake = 0.5;
+  G.balls--;
+  if(G.balls<=0){
+    setMsg("THE SNAKES WIN", "", 2);
+    setTimeout(gameOver, 1400);
+    G.state="ballend";
+  } else {
+    setMsg("BALL LOST", "", 1.6);
+    G.state="ballend";
+    setTimeout(newBall, 1500);
+  }
+}
+
+/* ===================================================================== *
+ *  PHYSICS                                                              *
+ * ===================================================================== */
+const GRAV = 1250, MAXV = 1600;
+
+function flipperTip(f){
+  return { x: f.px + Math.cos(f.ang)*f.len,
+           y: f.py + Math.sin(f.ang)*f.len };
+}
+function updateFlipper(f, dt){
+  const target = f.held ? f.up : f.rest;
+  const SPEED = 26;                       // rad/s snap speed
+  const prev = f.ang;
+  if(f.ang < target) f.ang = Math.min(target, f.ang + SPEED*dt);
+  else if(f.ang > target) f.ang = Math.max(target, f.ang - SPEED*dt);
+  f.omega = (f.ang - prev) / dt;
+}
+
+function bounceSeg(s){
+  const cp = closestOnSeg(ball.x,ball.y, s.ax,s.ay, s.bx,s.by);
+  let dx = ball.x-cp.x, dy = ball.y-cp.y;
+  let d  = Math.hypot(dx,dy);
+  const minD = ball.r;
+  if(d >= minD) return false;
+  if(d < 1e-4){ dx=s.nx; dy=s.ny; d=1; }
+  const nx=dx/d, ny=dy/d;
+  const vn = ball.vx*nx + ball.vy*ny;
+  ball.x += nx*(minD-d);
+  ball.y += ny*(minD-d);
+  if(vn < 0){
+    const e = s.e;
+    ball.vx -= (1+e)*vn*nx;
+    ball.vy -= (1+e)*vn*ny;
+    // light tangential friction
+    ball.vx *= 0.992; ball.vy *= 0.992;
+  }
+  return true;
+}
+
+function hitFlipper(f){
+  const tip = flipperTip(f);
+  const cp = closestOnSeg(ball.x,ball.y, f.px,f.py, tip.x,tip.y);
+  let dx = ball.x-cp.x, dy = ball.y-cp.y;
+  let d  = Math.hypot(dx,dy);
+  const minD = ball.r + f.fr;
+  if(d >= minD) return;
+  if(d < 1e-4){ dx=0; dy=-1; d=1; }
+  const nx=dx/d, ny=dy/d;
+  // surface velocity at contact: omega x r  (2D)
+  const rx = cp.x - f.px, ry = cp.y - f.py;
+  const svx = -f.omega * ry, svy = f.omega * rx;
+  ball.x += nx*(minD-d);
+  ball.y += ny*(minD-d);
+  const rvx = ball.vx - svx, rvy = ball.vy - svy;
+  const rvn = rvx*nx + rvy*ny;
+  if(rvn < 0){
+    const e = 0.32;
+    const jx = -(1+e)*rvn*nx, jy = -(1+e)*rvn*ny;
+    ball.vx += jx; ball.vy += jy;
+  }
+  // extra snap when the flipper is actively swinging up
+  if(f.held && Math.abs(f.omega) > 2){
+    ball.vx += svx*0.55; ball.vy += svy*0.55;
+  }
+}
+
+function bumperHit(b){
+  const dx=ball.x-b.x, dy=ball.y-b.y;
+  const d=Math.hypot(dx,dy), minD=ball.r+b.r;
+  if(d>=minD) return;
+  const nx=dx/(d||1), ny=dy/(d||1);
+  ball.x = b.x + nx*minD;
+  ball.y = b.y + ny*minD;
+  const vn = ball.vx*nx + ball.vy*ny;
+  if(vn<0){ ball.vx -= 1.4*vn*nx; ball.vy -= 1.4*vn*ny; }
+  ball.vx += nx*250; ball.vy += ny*250;     // pop kick
+  b.flash = 1;
+  addScore(500);
+  SFX.bump();
+}
+
+function slingHit(s){
+  const cp = closestOnSeg(ball.x,ball.y, s.ax,s.ay, s.bx,s.by);
+  let dx=ball.x-cp.x, dy=ball.y-cp.y;
+  let d=Math.hypot(dx,dy);
+  if(d>=ball.r) return;
+  if(d<1e-4){ dx=s.nx; dy=s.ny; d=1; }
+  const nx=dx/d, ny=dy/d;
+  ball.x += nx*(ball.r-d);
+  ball.y += ny*(ball.r-d);
+  const vn = ball.vx*nx+ball.vy*ny;
+  if(vn<0){ ball.vx -= 1.5*vn*nx; ball.vy -= 1.5*vn*ny; }
+  ball.vx += nx*330; ball.vy += ny*330;
+  s.flash = 1;
+  addScore(220);
+  SFX.sling();
+}
+
+function targetHit(t){
+  // treat as a small vertical paddle facing into the playfield (+x)
+  if(t.lit) return;
+  if(ball.x - ball.r > t.x + t.w/2) return;
+  if(ball.x + ball.r < t.x - t.w/2) return;
+  if(ball.y < t.y - t.h/2 - ball.r) return;
+  if(ball.y > t.y + t.h/2 + ball.r) return;
+  if(ball.vx > 40) return;                 // must be moving leftward into it
+  t.lit = true; t.flash = 1;
+  ball.vx = Math.abs(ball.vx)*0.5 + 90;    // kick back out
+  addScore(1500);
+  SFX.tgt();
+  if(targets.every(q=>q.lit)) idolComplete();
+}
+function idolComplete(){
+  G.idolDone++;
+  G.mult = Math.min(5, G.mult+1);
+  G.loopLit = true;
+  addScore(10000);
+  SFX.idol();
+  setMsg("GOLDEN IDOL!", "MULTIPLIER  x"+G.mult+"  ·  LEFT ORBIT LIT", 3.0);
+  G.shake = 0.35;
+  setTimeout(()=>{ targets.forEach(t=> t.lit=false); }, 1100);
+}
+
+function laneCheck(){
+  // top rollover lanes A B C
+  for(const l of lanes){
+    const d = Math.hypot(ball.x-l.x, ball.y-l.y);
+    if(d < l.r && !l.lit && ball.y < 240){
+      l.lit = true;
+      addScore(1000);
+      SFX.lane();
+      if(lanes.every(q=>q.lit)){
+        lanes.forEach(q=> q.lit=false);
+        G.mult = Math.min(5, G.mult+1);
+        addScore(5000);
+        setMsg("LANES COMPLETE", "MULTIPLIER  x"+G.mult, 2.4);
+      }
+    }
+  }
+}
+
+let lastLoopX = 999;
+function loopCheck(){
+  // left orbit: ball sweeping across the top-left while loop is lit
+  if(G.loopLit && ball.y < 240 && lastLoopX > 150 && ball.x <= 150){
+    G.loopLit = false;
+    G.loopFlash = 1.2;
+    addScore(50000);
+    SFX.jackpot();
+    setMsg("TEMPLE ESCAPE!", "JACKPOT  50,000", 3.2);
+    G.shake = 0.5;
+  }
+  lastLoopX = ball.x;
+}
+
+function physics(dt){
+  updateFlipper(flipL, dt);
+  updateFlipper(flipR, dt);
+
+  if(G.state==="ready" && !ball.live){
+    // ball rests on the plunger; charge while held
+    if(plunger.charging) plunger.power = Math.min(1, plunger.power + dt*1.25);
+    ball.x = 435; ball.y = 786 - plunger.power*22;
+    return;
+  }
+  if(G.state!=="play") return;
+
+  const SUB = 6, h = dt/SUB;
+  for(let s=0;s<SUB;s++){
+    ball.vy += GRAV*h;
+    const sp = Math.hypot(ball.vx,ball.vy);
+    if(sp>MAXV){ ball.vx*=MAXV/sp; ball.vy*=MAXV/sp; }
+    ball.x += ball.vx*h;
+    ball.y += ball.vy*h;
+
+    // shooter-lane feed: once the launched ball reaches the top of the
+    // chute it is delivered over the dome into the upper playfield.
+    // A harder plunge whips it across faster (skill shot).
+    if(ball.inLane && ball.vy < 0 && ball.x > 418 && ball.y <= 255){
+      const sp0 = Math.hypot(ball.vx, ball.vy);
+      ball.x = 398; ball.y = 172;
+      ball.vx = -Math.max(220, sp0*0.42);
+      ball.vy = 90;
+      ball.inLane = false;
+      continue;
+    }
+
+    for(const seg of segments) bounceSeg(seg);
+    for(const b of bumpers)   bumperHit(b);
+    for(const sl of slings)   slingHit(sl);
+    for(const t of targets)   targetHit(t);
+    hitFlipper(flipL);
+    hitFlipper(flipR);
+  }
+  laneCheck();
+  loopCheck();
+
+  if(G.saveTimer>0) G.saveTimer = Math.max(0, G.saveTimer-dt);
+
+  // drained
+  if(ball.y > H + 30) loseBall();
+}
+
+/* ===================================================================== *
+ *  RENDER                                                               *
+ * ===================================================================== */
+function drawDMD(){
+  // dot-matrix display strip at the top
+  ctx.save();
+  ctx.fillStyle = "#0c0a05";
+  ctx.fillRect(44,2,408,86);
+  ctx.strokeStyle = "#5a4012"; ctx.lineWidth=2;
+  ctx.strokeRect(44,2,408,86);
+  ctx.fillStyle = "#f5c542";
+  ctx.font = "bold 15px 'Courier New',monospace";
+  ctx.textBaseline="top";
+  ctx.textAlign="left";
+  ctx.fillText("SCORE", 56, 10);
+  ctx.font = "bold 26px 'Courier New',monospace";
+  ctx.fillText(G.score.toLocaleString(), 56, 26);
+  ctx.font = "bold 13px 'Courier New',monospace";
+  ctx.textAlign="right";
+  ctx.fillStyle="#ff8a3c";
+  ctx.fillText("BALL "+G.ball+"/3", 444, 10);
+  ctx.fillText("MULT x"+G.mult, 444, 28);
+  ctx.fillStyle="#b08a4a";
+  ctx.fillText("HI "+G.hi.toLocaleString(), 444, 46);
+
+  // IDOL letter lamps
+  ctx.textAlign="left";
+  let lx=56;
+  for(const t of targets){
+    ctx.fillStyle = t.lit ? "#ffe27a" : "#5a4012";
+    ctx.font="bold 17px 'Courier New',monospace";
+    ctx.fillText(t.ch, lx, 56);
+    lx+=18;
+  }
+  ctx.fillStyle = G.loopLit ? "#7affab" : "#3a3a22";
+  ctx.font="bold 12px 'Courier New',monospace";
+  ctx.fillText(G.loopLit ? "◀ ORBIT LIT" : "◀ orbit", 150, 60);
+
+  // scrolling-ish message line
+  if(G.msgT>0){
+    ctx.textAlign="center";
+    ctx.fillStyle="#ffe9b0";
+    ctx.font="bold 18px 'Courier New',monospace";
+    ctx.fillText(G.msg, 248, 9);
+    if(G.sub){
+      ctx.fillStyle="#ff8a3c";
+      ctx.font="bold 11px 'Courier New',monospace";
+      ctx.fillText(G.sub, 248, 70);
+    }
+  }
+  ctx.restore();
+}
+
+function drawTable(){
+  // playfield base (aged amber wood / temple floor)
+  const g = ctx.createLinearGradient(0,90,0,H);
+  g.addColorStop(0,"#3a2a12");
+  g.addColorStop(0.5,"#2a1d0c");
+  g.addColorStop(1,"#180f05");
+  ctx.fillStyle = g;
+  ctx.fillRect(40,90,416,H-90);
+
+  // faint stone hieroglyph motifs
+  ctx.save();
+  ctx.globalAlpha=0.10; ctx.strokeStyle="#f5c542"; ctx.lineWidth=2;
+  for(let i=0;i<5;i++){
+    ctx.strokeRect(70+i*70, 470, 18, 26);
+  }
+  ctx.beginPath(); ctx.arc(240,300,140,0,Math.PI*2); ctx.stroke();
+  ctx.restore();
+
+  // plunger lane shading
+  ctx.fillStyle="#241808";
+  ctx.fillRect(418,118,34,H-118);
+
+  // walls
+  ctx.lineCap="round";
+  ctx.strokeStyle="#c9a24a"; ctx.lineWidth=5;
+  for(const s of segments){
+    ctx.beginPath(); ctx.moveTo(s.ax,s.ay); ctx.lineTo(s.bx,s.by); ctx.stroke();
+  }
+  ctx.strokeStyle="#7a5a1f"; ctx.lineWidth=2;
+  for(const s of segments){
+    ctx.beginPath(); ctx.moveTo(s.ax,s.ay); ctx.lineTo(s.bx,s.by); ctx.stroke();
+  }
+
+  // top rollover lanes
+  for(const l of lanes){
+    ctx.beginPath(); ctx.arc(l.x,l.y,l.r,0,Math.PI*2);
+    ctx.fillStyle = l.lit ? "rgba(122,255,171,.35)" : "rgba(255,255,255,.06)";
+    ctx.fill();
+    ctx.lineWidth=2; ctx.strokeStyle = l.lit ? "#7affab" : "#6a5224";
+    ctx.stroke();
+    ctx.fillStyle = l.lit ? "#caffe0" : "#8a6a2a";
+    ctx.font="bold 14px 'Courier New',monospace";
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.fillText(l.letter, l.x, l.y);
+  }
+
+  // slingshots
+  for(const s of slings){
+    ctx.beginPath(); ctx.moveTo(s.ax,s.ay); ctx.lineTo(s.bx,s.by);
+    ctx.lineWidth = 10;
+    ctx.strokeStyle = s.flash>0 ? "#fff3c8" : "#b5862f";
+    ctx.stroke();
+    if(s.flash>0) s.flash = Math.max(0, s.flash-0.08);
+  }
+
+  // pop bumpers (carved idol heads)
+  for(const b of bumpers){
+    const r=b.r;
+    ctx.beginPath(); ctx.arc(b.x,b.y,r+4,0,Math.PI*2);
+    ctx.fillStyle = b.flash>0 ? "#fff0bf" : "#7a5a22"; ctx.fill();
+    const gg=ctx.createRadialGradient(b.x-6,b.y-6,3,b.x,b.y,r);
+    gg.addColorStop(0, b.flash>0?"#ffffff":"#ffd766");
+    gg.addColorStop(1,"#9c6e1c");
+    ctx.beginPath(); ctx.arc(b.x,b.y,r,0,Math.PI*2);
+    ctx.fillStyle=gg; ctx.fill();
+    // tiny face
+    ctx.fillStyle="#5a3c0e";
+    ctx.beginPath(); ctx.arc(b.x-7,b.y-3,2.4,0,7); ctx.fill();
+    ctx.beginPath(); ctx.arc(b.x+7,b.y-3,2.4,0,7); ctx.fill();
+    ctx.fillRect(b.x-5,b.y+6,10,3);
+    if(b.flash>0) b.flash = Math.max(0,b.flash-0.07);
+  }
+
+  // IDOL drop targets
+  for(const t of targets){
+    ctx.fillStyle = t.lit ? "#ffe27a" : (t.flash>0?"#fff":"#9c7a2c");
+    ctx.fillRect(t.x - t.w/2, t.y - t.h/2, t.w, t.h);
+    ctx.fillStyle = t.lit ? "#3a2a08" : "#3a2a08";
+    ctx.font="bold 12px 'Courier New',monospace";
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.save(); ctx.translate(t.x, t.y);
+    ctx.fillText(t.ch, 0, 0);
+    ctx.restore();
+    if(t.flash>0) t.flash=Math.max(0,t.flash-0.08);
+  }
+
+  // golden idol shrine at top-centre (the goal)
+  const lit = G.loopLit || G.loopFlash>0;
+  ctx.save();
+  ctx.translate(240,150);
+  ctx.fillStyle = lit ? "#ffe27a" : "#8a6a28";
+  ctx.beginPath(); ctx.arc(0,-6,12,0,Math.PI*2); ctx.fill();
+  ctx.fillRect(-10,4,20,16);
+  if(lit){
+    ctx.globalAlpha=0.4;
+    ctx.beginPath(); ctx.arc(0,0,26,0,Math.PI*2);
+    ctx.fillStyle="#ffe27a"; ctx.fill();
+  }
+  ctx.restore();
+  if(G.loopFlash>0) G.loopFlash=Math.max(0,G.loopFlash-0.03);
+}
+
+function drawFlipper(f){
+  const tip=flipperTip(f);
+  ctx.beginPath();
+  ctx.moveTo(f.px,f.py); ctx.lineTo(tip.x,tip.y);
+  ctx.lineCap="round"; ctx.lineWidth=f.fr*2;
+  ctx.strokeStyle="#d9b25a"; ctx.stroke();
+  ctx.lineWidth=f.fr*2-6; ctx.strokeStyle="#a37e2c"; ctx.stroke();
+  ctx.beginPath(); ctx.arc(f.px,f.py,5,0,Math.PI*2);
+  ctx.fillStyle="#5a3c0e"; ctx.fill();
+}
+
+function drawBall(){
+  const g=ctx.createRadialGradient(ball.x-4,ball.y-4,2,ball.x,ball.y,ball.r);
+  g.addColorStop(0,"#ffffff");
+  g.addColorStop(0.4,"#cfd6e0");
+  g.addColorStop(1,"#5a6270");
+  ctx.beginPath(); ctx.arc(ball.x,ball.y,ball.r,0,Math.PI*2);
+  ctx.fillStyle=g; ctx.fill();
+  ctx.strokeStyle="rgba(0,0,0,.4)"; ctx.lineWidth=1; ctx.stroke();
+}
+
+function drawPlungerUI(){
+  if(G.state!=="ready") return;
+  // power meter in the lane
+  const px=418, h=(H-130);
+  ctx.fillStyle="#1a1206"; ctx.fillRect(px+4,180,26,h-60);
+  ctx.fillStyle="#ff8a3c";
+  const ph=(h-60)*plunger.power;
+  ctx.fillRect(px+4, 180+(h-60)-ph, 26, ph);
+  // launch button
+  ctx.fillStyle = plunger.charging ? "#ffe27a" : "#f5c542";
+  roundRect(launchBtn.x,launchBtn.y,launchBtn.w,launchBtn.h,8); ctx.fill();
+  ctx.fillStyle="#3a2208"; ctx.font="bold 16px 'Courier New',monospace";
+  ctx.textAlign="center"; ctx.textBaseline="middle";
+  ctx.fillText(plunger.charging?"RELEASE!":"HOLD ▶ LAUNCH",
+               launchBtn.x+launchBtn.w/2, launchBtn.y+launchBtn.h/2);
+}
+function roundRect(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);
+  ctx.arcTo(x+w,y,x+w,y+h,r);
+  ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);
+  ctx.arcTo(x,y,x+w,y,r);
+  ctx.closePath();
+}
+
+function drawTouchHints(){
+  if(G.state!=="play" && G.state!=="ready") return;
+  ctx.save();
+  ctx.globalAlpha=0.10;
+  ctx.fillStyle="#f5c542";
+  ctx.fillRect(44,560,150,H-560);
+  ctx.fillStyle="#ff8a3c";
+  ctx.fillRect(302,560,150,H-560);
+  ctx.restore();
+  ctx.save();
+  ctx.globalAlpha=0.5;
+  ctx.fillStyle="#f5c542"; ctx.font="bold 13px 'Courier New',monospace";
+  ctx.textAlign="center";
+  ctx.fillText("◀ FLIP", 110, H-26);
+  ctx.fillText("FLIP ▶", 386, H-26);
+  ctx.restore();
+}
+
+function render(){
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.fillStyle="#0a0602";
+  ctx.fillRect(0,0,cv.width/dpr,cv.height/dpr);
+
+  ctx.save();
+  ctx.translate(ox,oy); ctx.scale(scale,scale);
+  // screen shake on big events / drains
+  if(G.shake>0){
+    ctx.translate((Math.random()-0.5)*8*G.shake,(Math.random()-0.5)*8*G.shake);
+    G.shake=Math.max(0,G.shake-0.03);
+  }
+
+  drawTable();
+  drawTouchHints();
+  drawFlipper(flipL);
+  drawFlipper(flipR);
+  if(G.state!=="ballend") drawBall();
+  drawPlungerUI();
+  drawDMD();
+
+  ctx.restore();
+}
+
+/* ===================================================================== *
+ *  MAIN LOOP                                                            *
+ * ===================================================================== */
+let last = performance.now();
+function frame(now){
+  let dt = (now-last)/1000;
+  last = now;
+  if(dt>0.05) dt=0.05;            // clamp big gaps (tab switch)
+
+  if(G.msgT>0) G.msgT-=dt;
+  if(G.state==="play"||G.state==="ready") physics(dt);
+
+  render();
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+})();
+</script>
+</body>
+</html>

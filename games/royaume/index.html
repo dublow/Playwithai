@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#1a1208" />
+<meta name="description" content="Royaume — un jeu de stratégie et de gestion médiéval : récolte, construis, recrute et conquiers." />
+<title>⚔️ Royaume — Stratégie médiévale</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23c79a3b'/%3E%3Ctext x='16' y='23' font-size='18' text-anchor='middle'%3E%E2%9A%94%EF%B8%8F%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ===== Barre de ressources (toujours visible) ===== -->
+<header class="topbar">
+  <div class="title">⚔️ <span>Royaume</span></div>
+  <div class="resources" id="resourceBar">
+    <div class="res" title="Bois">🪵 <b id="r-wood">0</b><i id="rp-wood">+0/s</i></div>
+    <div class="res" title="Pierre">🪨 <b id="r-stone">0</b><i id="rp-stone">+0/s</i></div>
+    <div class="res" title="Nourriture">🌾 <b id="r-food">0</b><i id="rp-food">+0/s</i></div>
+    <div class="res" title="Or">🪙 <b id="r-gold">0</b><i id="rp-gold">+0/s</i></div>
+  </div>
+</header>
+
+<main class="layout">
+
+  <!-- ===== Objectif courant ===== -->
+  <section class="panel objective">
+    <h2>🎯 Objectif</h2>
+    <p id="objectiveText">…</p>
+    <div class="bar"><span id="objectiveBar"></span></div>
+    <small id="objectiveHint"></small>
+  </section>
+
+  <!-- ===== Récolte manuelle ===== -->
+  <section class="panel harvest">
+    <h2>✋ Récolte manuelle</h2>
+    <div class="harvest-grid">
+      <button class="harvest-btn" data-res="wood">🪵<span>Couper du bois</span></button>
+      <button class="harvest-btn" data-res="stone">🪨<span>Extraire de la pierre</span></button>
+      <button class="harvest-btn" data-res="food">🌾<span>Cultiver</span></button>
+    </div>
+  </section>
+
+  <!-- ===== Bâtiments ===== -->
+  <section class="panel">
+    <h2>🏗️ Bâtiments</h2>
+    <div id="buildings" class="card-list"></div>
+  </section>
+
+  <!-- ===== Armée ===== -->
+  <section class="panel">
+    <h2>🛡️ Armée — Puissance : <b id="armyPower">0</b></h2>
+    <div id="units" class="card-list"></div>
+  </section>
+
+  <!-- ===== Technologies ===== -->
+  <section class="panel">
+    <h2>📜 Technologies</h2>
+    <div id="techs" class="card-list"></div>
+  </section>
+
+  <!-- ===== Combat ===== -->
+  <section class="panel combat">
+    <h2>⚔️ Combat</h2>
+    <div class="enemy">
+      <div>👹 Ennemi — niveau <b id="enemyLevel">1</b></div>
+      <div class="muted">Puissance ennemie ≈ <b id="enemyPower">0</b> · Chances de victoire : <b id="winChance">—</b></div>
+    </div>
+    <button id="attackBtn" class="attack-btn">⚔️ Attaquer</button>
+    <div class="xp">
+      <div>Niveau du royaume <b id="kingdomLevel">1</b> · XP <span id="xpText">0/100</span></div>
+      <div class="bar"><span id="xpBar"></span></div>
+    </div>
+  </section>
+
+  <!-- ===== Journal ===== -->
+  <section class="panel logs">
+    <h2>📰 Journal des événements</h2>
+    <ul id="log"></ul>
+  </section>
+
+  <!-- ===== Options ===== -->
+  <section class="panel options">
+    <h2>⚙️ Options</h2>
+    <p class="muted">Sauvegarde automatique toutes les 10 s · progression hors-ligne activée.</p>
+    <button id="saveBtn" class="ghost-btn">💾 Sauvegarder</button>
+    <button id="resetBtn" class="danger-btn">🗑️ Réinitialiser</button>
+  </section>
+
+</main>
+
+<!-- ===== Notifications ===== -->
+<div id="toasts" class="toasts"></div>
+
+<script src="script.js"></script>
+</body>
+</html>

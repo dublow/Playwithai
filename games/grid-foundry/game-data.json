@@ -1,0 +1,1514 @@
+{
+  "RESOURCES": {
+    "bois": {
+      "name": "Bois",
+      "icon": "forest",
+      "cls": "",
+      "base": true
+    },
+    "pierre": {
+      "name": "Pierre",
+      "icon": "terrain",
+      "cls": "",
+      "base": true
+    },
+    "nourriture": {
+      "name": "Nourriture",
+      "icon": "agriculture",
+      "cls": "",
+      "base": true
+    },
+    "eau": {
+      "name": "Eau",
+      "icon": "water_drop",
+      "cls": "",
+      "base": true
+    },
+    "charbon": {
+      "name": "Charbon",
+      "icon": "local_fire_department",
+      "cls": "t1"
+    },
+    "brique": {
+      "name": "Brique",
+      "icon": "grid_view",
+      "cls": "t1"
+    },
+    "ouvrier": {
+      "name": "Ouvrier",
+      "icon": "engineering",
+      "cls": "t1"
+    },
+    "metal": {
+      "name": "Métal",
+      "icon": "hardware",
+      "cls": "t2"
+    },
+    "energie": {
+      "name": "Énergie",
+      "icon": "bolt",
+      "cls": "t2"
+    },
+    "outil": {
+      "name": "Outil",
+      "icon": "build",
+      "cls": "t2"
+    },
+    "machine": {
+      "name": "Machine",
+      "icon": "precision_manufacturing",
+      "cls": "t3"
+    },
+    "alliage": {
+      "name": "Alliage",
+      "icon": "layers",
+      "cls": "t3"
+    },
+    "circuit": {
+      "name": "Circuit",
+      "icon": "memory",
+      "cls": "t3"
+    },
+    "calcul": {
+      "name": "Calcul quantique",
+      "icon": "blur_on",
+      "cls": "fin"
+    },
+    "ordinateur": {
+      "name": "Ordinateur quantique",
+      "icon": "computer",
+      "cls": "fin"
+    },
+    "biomasse": {
+      "name": "Biomasse",
+      "icon": "compost",
+      "cls": "t3"
+    },
+    "adn": {
+      "name": "ADN",
+      "icon": "biotech",
+      "cls": "t3"
+    },
+    "cellule": {
+      "name": "Cellule avancée",
+      "icon": "bubble_chart",
+      "cls": "fin"
+    },
+    "organisme": {
+      "name": "Organisme synthétique",
+      "icon": "potted_plant",
+      "cls": "fin"
+    },
+    "conscience": {
+      "name": "Conscience organique",
+      "icon": "psychology",
+      "cls": "fin"
+    },
+    "energieStable": {
+      "name": "Énergie stable",
+      "icon": "battery_charging_full",
+      "cls": "t3"
+    },
+    "plasma": {
+      "name": "Plasma",
+      "icon": "flare",
+      "cls": "t3"
+    },
+    "cristal": {
+      "name": "Cristal énergétique",
+      "icon": "diamond",
+      "cls": "fin"
+    },
+    "antimatiere": {
+      "name": "Antimatière",
+      "icon": "scatter_plot",
+      "cls": "fin"
+    },
+    "reacteurStellaire": {
+      "name": "Réacteur stellaire",
+      "icon": "auto_awesome",
+      "cls": "fin"
+    }
+  },
+  "BUILDINGS": {
+    "scierie": {
+      "name": "Scierie",
+      "icon": "forest",
+      "tier": 1,
+      "tag": "t1",
+      "desc": "Exploite la forêt locale et produit du bois en continu.",
+      "cost": {
+        "bois": 10,
+        "pierre": 5
+      },
+      "produce": {
+        "bois": 3
+      }
+    },
+    "carriere": {
+      "name": "Carrière",
+      "icon": "terrain",
+      "tier": 1,
+      "tag": "t1",
+      "desc": "Extrait la pierre du gisement local.",
+      "cost": {
+        "bois": 10,
+        "pierre": 5
+      },
+      "produce": {
+        "pierre": 3
+      }
+    },
+    "puits": {
+      "name": "Puits",
+      "icon": "water_drop",
+      "tier": 1,
+      "tag": "t1",
+      "desc": "Puise l'eau d'une source locale.",
+      "cost": {
+        "pierre": 8
+      },
+      "produce": {
+        "eau": 4
+      }
+    },
+    "ferme": {
+      "name": "Ferme",
+      "icon": "agriculture",
+      "tier": 1,
+      "tag": "t1",
+      "desc": "Cultive la nourriture. Adore la proximité de l'eau.",
+      "cost": {
+        "bois": 15,
+        "eau": 5
+      },
+      "produce": {
+        "nourriture": 2
+      }
+    },
+    "fourneau": {
+      "name": "Fourneau",
+      "icon": "local_fire_department",
+      "tier": 1,
+      "tag": "t1",
+      "desc": "Transforme le bois en charbon.",
+      "cost": {
+        "pierre": 20,
+        "bois": 10
+      },
+      "consume": {
+        "bois": 1
+      },
+      "produce": {
+        "charbon": 2
+      }
+    },
+    "briqueterie": {
+      "name": "Briqueterie",
+      "icon": "grid_view",
+      "tier": 1,
+      "tag": "t1",
+      "desc": "Cuit la pierre et l'eau en briques.",
+      "cost": {
+        "pierre": 20,
+        "bois": 10
+      },
+      "consume": {
+        "pierre": 1,
+        "eau": 1
+      },
+      "produce": {
+        "brique": 1
+      }
+    },
+    "cantine": {
+      "name": "Cantine",
+      "icon": "restaurant",
+      "tier": 1,
+      "tag": "t1",
+      "desc": "Nourrit et forme des ouvriers.",
+      "cost": {
+        "bois": 15,
+        "pierre": 10
+      },
+      "consume": {
+        "nourriture": 2,
+        "eau": 1
+      },
+      "produce": {
+        "ouvrier": 1
+      }
+    },
+    "centreville": {
+      "name": "Centre-ville",
+      "icon": "location_city",
+      "tier": 1,
+      "tag": "civic",
+      "desc": "Cœur de la colonie. Ouvre l'Ère Industrielle et l'expansion 4×4. +10% aux bâtiments des Ères Pionnière et Industrielle adjacents.",
+      "cost": {
+        "bois": 50,
+        "pierre": 40,
+        "brique": 20,
+        "ouvrier": 10
+      },
+      "unlock": 2
+    },
+    "forge": {
+      "name": "Forge",
+      "icon": "hardware",
+      "tier": 2,
+      "tag": "t2",
+      "desc": "Fond la pierre et le charbon en métal.",
+      "cost": {
+        "pierre": 30,
+        "charbon": 20,
+        "brique": 10
+      },
+      "consume": {
+        "pierre": 1,
+        "charbon": 1
+      },
+      "produce": {
+        "metal": 1
+      }
+    },
+    "generateur": {
+      "name": "Générateur",
+      "icon": "bolt",
+      "tier": 2,
+      "tag": "t2",
+      "desc": "Brûle le charbon pour produire de l'énergie.",
+      "cost": {
+        "metal": 30,
+        "pierre": 20
+      },
+      "consume": {
+        "charbon": 1,
+        "eau": 1
+      },
+      "produce": {
+        "energie": 1
+      }
+    },
+    "atelier": {
+      "name": "Atelier",
+      "icon": "build",
+      "tier": 2,
+      "tag": "t2",
+      "desc": "Façonne le métal en outils.",
+      "cost": {
+        "bois": 25,
+        "metal": 15
+      },
+      "consume": {
+        "metal": 1,
+        "bois": 1
+      },
+      "produce": {
+        "outil": 1
+      }
+    },
+    "hub": {
+      "name": "Hub industriel",
+      "icon": "hub",
+      "tier": 2,
+      "tag": "civic",
+      "desc": "Ouvre l'Ère Avancée et l'expansion 5×5. +10% aux bâtiments industriels adjacents.",
+      "cost": {
+        "metal": 40,
+        "outil": 25,
+        "energie": 30,
+        "brique": 20
+      },
+      "unlock": 3
+    },
+    "usine": {
+      "name": "Usine",
+      "icon": "factory",
+      "tier": 3,
+      "tag": "t3",
+      "desc": "Assemble des machines.",
+      "cost": {
+        "metal": 50,
+        "outil": 30,
+        "energie": 30
+      },
+      "consume": {
+        "metal": 1,
+        "outil": 1,
+        "energie": 1
+      },
+      "produce": {
+        "machine": 1
+      }
+    },
+    "fonderie": {
+      "name": "Fonderie avancée",
+      "icon": "layers",
+      "tier": 3,
+      "tag": "t3",
+      "desc": "Coule des alliages haute performance.",
+      "cost": {
+        "metal": 40,
+        "energie": 40,
+        "machine": 20
+      },
+      "consume": {
+        "metal": 2,
+        "energie": 1
+      },
+      "produce": {
+        "alliage": 1
+      }
+    },
+    "circuiterie": {
+      "name": "Fabrique de circuits",
+      "icon": "memory",
+      "tier": 3,
+      "tag": "t3",
+      "desc": "Grave des circuits intégrés.",
+      "cost": {
+        "alliage": 30,
+        "energie": 30,
+        "outil": 20
+      },
+      "consume": {
+        "alliage": 1,
+        "energie": 1,
+        "outil": 1
+      },
+      "produce": {
+        "circuit": 1
+      }
+    },
+    "labquantique": {
+      "name": "Laboratoire quantique",
+      "icon": "science",
+      "tier": 3,
+      "tag": "t3",
+      "desc": "Axe Métal — calcule en superposition quantique.",
+      "cost": {
+        "circuit": 40,
+        "energie": 50,
+        "alliage": 30
+      },
+      "consume": {
+        "circuit": 1,
+        "energie": 2,
+        "alliage": 1
+      },
+      "produce": {
+        "calcul": 1
+      }
+    },
+    "centrecalcul": {
+      "name": "Centre de calcul",
+      "icon": "computer",
+      "tier": 3,
+      "tag": "t3",
+      "desc": "Axe Métal — bâtit l'ordinateur quantique. Objectif final Métal.",
+      "cost": {
+        "calcul": 30,
+        "circuit": 50,
+        "energie": 100,
+        "alliage": 40
+      },
+      "consume": {
+        "calcul": 2,
+        "circuit": 2,
+        "energie": 3
+      },
+      "produce": {
+        "ordinateur": 1
+      }
+    },
+    "bioreacteur": {
+      "name": "Bio-réacteur",
+      "icon": "compost",
+      "tier": 3,
+      "tag": "t3",
+      "desc": "Axe Bio — fermente la biomasse.",
+      "cost": {
+        "bois": 30,
+        "eau": 20,
+        "ouvrier": 15
+      },
+      "consume": {
+        "nourriture": 2,
+        "eau": 1
+      },
+      "produce": {
+        "biomasse": 1
+      }
+    },
+    "labadn": {
+      "name": "Laboratoire ADN",
+      "icon": "biotech",
+      "tier": 3,
+      "tag": "t3",
+      "desc": "Axe Bio — séquence de l'ADN.",
+      "cost": {
+        "biomasse": 30,
+        "energie": 30,
+        "outil": 20
+      },
+      "consume": {
+        "biomasse": 1,
+        "energie": 1
+      },
+      "produce": {
+        "adn": 1
+      }
+    },
+    "incubateur": {
+      "name": "Incubateur",
+      "icon": "bubble_chart",
+      "tier": 3,
+      "tag": "t3",
+      "desc": "Axe Bio — fait croître des cellules avancées.",
+      "cost": {
+        "adn": 30,
+        "nourriture": 30,
+        "energie": 20
+      },
+      "consume": {
+        "adn": 1,
+        "nourriture": 2,
+        "energie": 1
+      },
+      "produce": {
+        "cellule": 1
+      }
+    },
+    "chambreevo": {
+      "name": "Chambre d'évolution",
+      "icon": "genetics",
+      "tier": 3,
+      "tag": "t3",
+      "desc": "Axe Bio — façonne des organismes synthétiques.",
+      "cost": {
+        "cellule": 30,
+        "biomasse": 30,
+        "energie": 40
+      },
+      "consume": {
+        "cellule": 1,
+        "biomasse": 1,
+        "energie": 2
+      },
+      "produce": {
+        "organisme": 1
+      }
+    },
+    "nexus": {
+      "name": "Nexus organique",
+      "icon": "psychology",
+      "tier": 3,
+      "tag": "t3",
+      "desc": "Axe Bio — éveille une conscience organique. Objectif final Bio.",
+      "cost": {
+        "organisme": 25,
+        "adn": 40,
+        "energie": 80
+      },
+      "consume": {
+        "organisme": 1,
+        "adn": 2,
+        "energie": 3
+      },
+      "produce": {
+        "conscience": 1
+      }
+    },
+    "stabilisateur": {
+      "name": "Stabilisateur",
+      "icon": "battery_charging_full",
+      "tier": 3,
+      "tag": "t3",
+      "desc": "Axe Énergie — stabilise l'énergie.",
+      "cost": {
+        "metal": 40,
+        "energie": 40,
+        "eau": 20
+      },
+      "consume": {
+        "energie": 2,
+        "eau": 1
+      },
+      "produce": {
+        "energieStable": 1
+      }
+    },
+    "reacteurplasma": {
+      "name": "Réacteur plasma",
+      "icon": "flare",
+      "tier": 3,
+      "tag": "t3",
+      "desc": "Axe Énergie — confine du plasma.",
+      "cost": {
+        "energieStable": 30,
+        "metal": 40,
+        "charbon": 30
+      },
+      "consume": {
+        "energieStable": 1,
+        "charbon": 1
+      },
+      "produce": {
+        "plasma": 1
+      }
+    },
+    "cristalliseur": {
+      "name": "Cristalliseur",
+      "icon": "diamond",
+      "tier": 3,
+      "tag": "t3",
+      "desc": "Axe Énergie — cristallise l'énergie.",
+      "cost": {
+        "plasma": 30,
+        "alliage": 30,
+        "energie": 40
+      },
+      "consume": {
+        "plasma": 1,
+        "energieStable": 1
+      },
+      "produce": {
+        "cristal": 1
+      }
+    },
+    "chambreantimatiere": {
+      "name": "Chambre antimatière",
+      "icon": "scatter_plot",
+      "tier": 3,
+      "tag": "t3",
+      "desc": "Axe Énergie — synthétise de l'antimatière.",
+      "cost": {
+        "cristal": 30,
+        "energieStable": 30,
+        "plasma": 30
+      },
+      "consume": {
+        "cristal": 1,
+        "energieStable": 1,
+        "plasma": 1
+      },
+      "produce": {
+        "antimatiere": 1
+      }
+    },
+    "reacteurstellaire": {
+      "name": "Réacteur stellaire",
+      "icon": "auto_awesome",
+      "tier": 3,
+      "tag": "t3",
+      "desc": "Axe Énergie — allume un réacteur stellaire. Objectif final Énergie.",
+      "cost": {
+        "antimatiere": 25,
+        "cristal": 40,
+        "energieStable": 60
+      },
+      "consume": {
+        "antimatiere": 1,
+        "cristal": 2,
+        "energieStable": 3
+      },
+      "produce": {
+        "reacteurStellaire": 1
+      }
+    }
+  },
+  "BUILD_ORDER": [
+    [
+      "Ère Pionnière",
+      [
+        "scierie",
+        "carriere",
+        "puits",
+        "ferme",
+        "fourneau",
+        "briqueterie",
+        "cantine",
+        "centreville"
+      ]
+    ],
+    [
+      "Ère Industrielle",
+      [
+        "forge",
+        "generateur",
+        "atelier",
+        "hub"
+      ]
+    ],
+    [
+      "Ère Avancée",
+      [
+        "usine",
+        "fonderie",
+        "circuiterie"
+      ]
+    ],
+    [
+      "Axe Métal / Technologie",
+      [
+        "labquantique",
+        "centrecalcul"
+      ]
+    ],
+    [
+      "Axe Bio / Organisme",
+      [
+        "bioreacteur",
+        "labadn",
+        "incubateur",
+        "chambreevo",
+        "nexus"
+      ]
+    ],
+    [
+      "Axe Énergie / Fusion",
+      [
+        "stabilisateur",
+        "reacteurplasma",
+        "cristalliseur",
+        "chambreantimatiere",
+        "reacteurstellaire"
+      ]
+    ]
+  ],
+  "ADJACENCY": {
+    "scierie": [
+      {
+        "near": "centreville",
+        "tgt": "self",
+        "res": "bois",
+        "pct": 10
+      },
+      {
+        "near": "fourneau",
+        "tgt": "nb",
+        "res": "charbon",
+        "pct": 10
+      },
+      {
+        "near": "generateur",
+        "tgt": "self",
+        "res": "bois",
+        "pct": -10
+      }
+    ],
+    "carriere": [
+      {
+        "near": "briqueterie",
+        "tgt": "nb",
+        "res": "brique",
+        "pct": 15
+      },
+      {
+        "near": "forge",
+        "tgt": "nb",
+        "res": "metal",
+        "pct": 10
+      },
+      {
+        "near": "centreville",
+        "tgt": "self",
+        "res": "pierre",
+        "pct": 10
+      }
+    ],
+    "ferme": [
+      {
+        "near": "puits",
+        "tgt": "self",
+        "res": "nourriture",
+        "pct": 25
+      },
+      {
+        "near": "cantine",
+        "tgt": "nb",
+        "res": "ouvrier",
+        "pct": 15
+      },
+      {
+        "near": "centreville",
+        "tgt": "self",
+        "res": "nourriture",
+        "pct": 10
+      },
+      {
+        "near": "fourneau",
+        "tgt": "self",
+        "res": "nourriture",
+        "pct": -20
+      },
+      {
+        "near": "generateur",
+        "tgt": "self",
+        "res": "nourriture",
+        "pct": -15
+      },
+      {
+        "near": "usine",
+        "tgt": "self",
+        "res": "nourriture",
+        "pct": -20
+      }
+    ],
+    "puits": [
+      {
+        "near": "ferme",
+        "tgt": "nb",
+        "res": "nourriture",
+        "pct": 25
+      },
+      {
+        "near": "generateur",
+        "tgt": "nb",
+        "res": "energie",
+        "pct": 10
+      },
+      {
+        "near": "stabilisateur",
+        "tgt": "nb",
+        "res": "energieStable",
+        "pct": 15
+      },
+      {
+        "near": "centreville",
+        "tgt": "self",
+        "res": "eau",
+        "pct": 10
+      }
+    ],
+    "fourneau": [
+      {
+        "near": "scierie",
+        "tgt": "self",
+        "res": "charbon",
+        "pct": 15
+      },
+      {
+        "near": "forge",
+        "tgt": "nb",
+        "res": "metal",
+        "pct": 25
+      },
+      {
+        "near": "centreville",
+        "tgt": "self",
+        "res": "charbon",
+        "pct": 10
+      }
+    ],
+    "briqueterie": [
+      {
+        "near": "carriere",
+        "tgt": "self",
+        "res": "brique",
+        "pct": 20
+      },
+      {
+        "near": "puits",
+        "tgt": "self",
+        "res": "eau",
+        "cons": true,
+        "pct": 10
+      },
+      {
+        "near": "centreville",
+        "tgt": "self",
+        "res": "brique",
+        "pct": 10
+      }
+    ],
+    "cantine": [
+      {
+        "near": "ferme",
+        "tgt": "self",
+        "res": "ouvrier",
+        "pct": 20
+      },
+      {
+        "near": "puits",
+        "tgt": "self",
+        "res": "ouvrier",
+        "pct": 10
+      },
+      {
+        "near": "centreville",
+        "tgt": "self",
+        "res": "ouvrier",
+        "pct": 10
+      }
+    ],
+    "forge": [
+      {
+        "near": "fourneau",
+        "tgt": "self",
+        "res": "metal",
+        "pct": 25
+      },
+      {
+        "near": "carriere",
+        "tgt": "self",
+        "res": "metal",
+        "pct": 10
+      },
+      {
+        "near": "generateur",
+        "tgt": "self",
+        "res": "metal",
+        "pct": 10
+      },
+      {
+        "near": "atelier",
+        "tgt": "nb",
+        "res": "outil",
+        "pct": 25
+      }
+    ],
+    "generateur": [
+      {
+        "near": "puits",
+        "tgt": "self",
+        "res": "eau",
+        "cons": true,
+        "pct": 15
+      },
+      {
+        "near": "fourneau",
+        "tgt": "self",
+        "res": "energie",
+        "pct": 15
+      },
+      {
+        "near": "usine",
+        "tgt": "nb",
+        "res": "machine",
+        "pct": 25
+      },
+      {
+        "near": "reacteurplasma",
+        "tgt": "nb",
+        "res": "plasma",
+        "pct": 20
+      }
+    ],
+    "atelier": [
+      {
+        "near": "forge",
+        "tgt": "self",
+        "res": "outil",
+        "pct": 25
+      },
+      {
+        "near": "usine",
+        "tgt": "nb",
+        "res": "machine",
+        "pct": 10
+      },
+      {
+        "near": "scierie",
+        "tgt": "self",
+        "res": "bois",
+        "cons": true,
+        "pct": 10
+      }
+    ],
+    "usine": [
+      {
+        "near": "generateur",
+        "tgt": "self",
+        "res": "machine",
+        "pct": 25
+      },
+      {
+        "near": "atelier",
+        "tgt": "self",
+        "res": "machine",
+        "pct": 10
+      },
+      {
+        "near": "circuiterie",
+        "tgt": "nb",
+        "res": "circuit",
+        "pct": 20
+      }
+    ],
+    "fonderie": [
+      {
+        "near": "forge",
+        "tgt": "self",
+        "res": "alliage",
+        "pct": 20
+      },
+      {
+        "near": "generateur",
+        "tgt": "self",
+        "res": "alliage",
+        "pct": 10
+      }
+    ],
+    "circuiterie": [
+      {
+        "near": "usine",
+        "tgt": "self",
+        "res": "circuit",
+        "pct": 20
+      },
+      {
+        "near": "generateur",
+        "tgt": "self",
+        "res": "circuit",
+        "pct": 10
+      },
+      {
+        "near": "labquantique",
+        "tgt": "nb",
+        "res": "calcul",
+        "pct": 20
+      }
+    ],
+    "labquantique": [
+      {
+        "near": "circuiterie",
+        "tgt": "self",
+        "res": "calcul",
+        "pct": 20
+      },
+      {
+        "near": "generateur",
+        "tgt": "self",
+        "res": "calcul",
+        "pct": 10
+      },
+      {
+        "near": "centrecalcul",
+        "tgt": "nb",
+        "res": "ordinateur",
+        "pct": 20
+      }
+    ],
+    "centrecalcul": [
+      {
+        "near": "labquantique",
+        "tgt": "self",
+        "res": "ordinateur",
+        "pct": 20
+      },
+      {
+        "near": "circuiterie",
+        "tgt": "self",
+        "res": "ordinateur",
+        "pct": 10
+      },
+      {
+        "near": "generateur",
+        "tgt": "self",
+        "res": "ordinateur",
+        "pct": 10
+      }
+    ],
+    "bioreacteur": [
+      {
+        "near": "ferme",
+        "tgt": "self",
+        "res": "biomasse",
+        "pct": 20
+      },
+      {
+        "near": "puits",
+        "tgt": "self",
+        "res": "biomasse",
+        "pct": 15
+      },
+      {
+        "near": "generateur",
+        "tgt": "self",
+        "res": "biomasse",
+        "pct": 10
+      },
+      {
+        "near": "fourneau",
+        "tgt": "self",
+        "res": "biomasse",
+        "pct": -15
+      }
+    ],
+    "labadn": [
+      {
+        "near": "bioreacteur",
+        "tgt": "self",
+        "res": "adn",
+        "pct": 20
+      },
+      {
+        "near": "generateur",
+        "tgt": "self",
+        "res": "adn",
+        "pct": 10
+      },
+      {
+        "near": "forge",
+        "tgt": "self",
+        "res": "adn",
+        "pct": -10
+      }
+    ],
+    "incubateur": [
+      {
+        "near": "labadn",
+        "tgt": "self",
+        "res": "cellule",
+        "pct": 20
+      },
+      {
+        "near": "ferme",
+        "tgt": "self",
+        "res": "cellule",
+        "pct": 15
+      },
+      {
+        "near": "usine",
+        "tgt": "self",
+        "res": "cellule",
+        "pct": -15
+      }
+    ],
+    "chambreevo": [
+      {
+        "near": "incubateur",
+        "tgt": "self",
+        "res": "organisme",
+        "pct": 20
+      },
+      {
+        "near": "bioreacteur",
+        "tgt": "self",
+        "res": "organisme",
+        "pct": 10
+      }
+    ],
+    "nexus": [
+      {
+        "near": "chambreevo",
+        "tgt": "self",
+        "res": "conscience",
+        "pct": 20
+      },
+      {
+        "near": "labadn",
+        "tgt": "self",
+        "res": "conscience",
+        "pct": 10
+      }
+    ],
+    "stabilisateur": [
+      {
+        "near": "generateur",
+        "tgt": "self",
+        "res": "energieStable",
+        "pct": 20
+      },
+      {
+        "near": "puits",
+        "tgt": "self",
+        "res": "energieStable",
+        "pct": 15
+      }
+    ],
+    "reacteurplasma": [
+      {
+        "near": "generateur",
+        "tgt": "self",
+        "res": "plasma",
+        "pct": 20
+      },
+      {
+        "near": "stabilisateur",
+        "tgt": "self",
+        "res": "plasma",
+        "pct": 15
+      }
+    ],
+    "cristalliseur": [
+      {
+        "near": "reacteurplasma",
+        "tgt": "self",
+        "res": "cristal",
+        "pct": 20
+      },
+      {
+        "near": "fonderie",
+        "tgt": "self",
+        "res": "cristal",
+        "pct": 15
+      }
+    ],
+    "chambreantimatiere": [
+      {
+        "near": "cristalliseur",
+        "tgt": "self",
+        "res": "antimatiere",
+        "pct": 20
+      },
+      {
+        "near": "stabilisateur",
+        "tgt": "self",
+        "res": "antimatiere",
+        "pct": 15
+      }
+    ],
+    "reacteurstellaire": [
+      {
+        "near": "chambreantimatiere",
+        "tgt": "self",
+        "res": "reacteurStellaire",
+        "pct": 20
+      },
+      {
+        "near": "cristalliseur",
+        "tgt": "self",
+        "res": "reacteurStellaire",
+        "pct": 10
+      },
+      {
+        "near": "stabilisateur",
+        "tgt": "self",
+        "res": "reacteurStellaire",
+        "pct": 10
+      }
+    ]
+  },
+  "CHAINS": [
+    {
+      "name": "Chaîne métal",
+      "mid": "forge",
+      "a": "fourneau",
+      "c": "atelier",
+      "res": "outil",
+      "at": "atelier",
+      "pct": 10
+    },
+    {
+      "name": "Chaîne machines",
+      "mid": "usine",
+      "a": "generateur",
+      "c": "circuiterie",
+      "res": "circuit",
+      "at": "circuiterie",
+      "pct": 10
+    },
+    {
+      "name": "Chaîne quantique",
+      "mid": "labquantique",
+      "a": "circuiterie",
+      "c": "centrecalcul",
+      "res": "ordinateur",
+      "at": "centrecalcul",
+      "pct": 10
+    },
+    {
+      "name": "Chaîne bio",
+      "mid": "bioreacteur",
+      "a": "ferme",
+      "c": "labadn",
+      "res": "adn",
+      "at": "labadn",
+      "pct": 10
+    },
+    {
+      "name": "Chaîne énergie",
+      "mid": "stabilisateur",
+      "a": "generateur",
+      "c": "reacteurplasma",
+      "res": "plasma",
+      "at": "reacteurplasma",
+      "pct": 10
+    }
+  ],
+  "SPECS": {
+    "metal": {
+      "name": "Axe Métal / Technologie",
+      "icon": "memory",
+      "mods": {
+        "metal": 1.2,
+        "outil": 1.2,
+        "circuit": 1.15,
+        "nourriture": 0.9
+      },
+      "txt": [
+        [
+          "metal",
+          20
+        ],
+        [
+          "outil",
+          20
+        ],
+        [
+          "circuit",
+          15
+        ],
+        [
+          "nourriture",
+          -10
+        ]
+      ]
+    },
+    "bio": {
+      "name": "Axe Bio / Organisme",
+      "icon": "biotech",
+      "mods": {
+        "nourriture": 1.2,
+        "ouvrier": 1.2,
+        "biomasse": 1.15,
+        "charbon": 0.9
+      },
+      "txt": [
+        [
+          "nourriture",
+          20
+        ],
+        [
+          "ouvrier",
+          20
+        ],
+        [
+          "biomasse",
+          15
+        ],
+        [
+          "charbon",
+          -10
+        ]
+      ]
+    },
+    "energie": {
+      "name": "Axe Énergie / Fusion",
+      "icon": "flare",
+      "mods": {
+        "energie": 1.2,
+        "charbon": 1.2,
+        "plasma": 1.15,
+        "bois": 0.9
+      },
+      "txt": [
+        [
+          "energie",
+          20
+        ],
+        [
+          "charbon",
+          20
+        ],
+        [
+          "plasma",
+          15
+        ],
+        [
+          "bois",
+          -10
+        ]
+      ]
+    }
+  },
+  "OBJ_COMMON": [
+    {
+      "ic": "forest",
+      "t": "Produire du bois (Scierie)"
+    },
+    {
+      "ic": "forest",
+      "t": "Construire une Scierie"
+    },
+    {
+      "ic": "terrain",
+      "t": "Construire une Carrière"
+    },
+    {
+      "ic": "water_drop",
+      "t": "Construire un Puits"
+    },
+    {
+      "ic": "agriculture",
+      "t": "Construire une Ferme"
+    },
+    {
+      "ic": "local_fire_department",
+      "t": "Produire du charbon"
+    },
+    {
+      "ic": "grid_view",
+      "t": "Produire des briques"
+    },
+    {
+      "ic": "engineering",
+      "t": "Produire des ouvriers"
+    },
+    {
+      "ic": "location_city",
+      "t": "Construire le Centre-ville"
+    },
+    {
+      "ic": "open_in_full",
+      "t": "Étendre la colonie en 4×4"
+    },
+    {
+      "ic": "hub",
+      "t": "Choisir une spécialisation"
+    }
+  ],
+  "OBJ_AXIS": {
+    "metal": [
+      {
+        "ic": "hardware",
+        "t": "Produire du métal"
+      },
+      {
+        "ic": "bolt",
+        "t": "Produire de l'énergie"
+      },
+      {
+        "ic": "build",
+        "t": "Produire des outils"
+      },
+      {
+        "ic": "hub",
+        "t": "Construire le Hub industriel"
+      },
+      {
+        "ic": "open_in_full",
+        "t": "Étendre l'industrie en 5×5"
+      },
+      {
+        "ic": "precision_manufacturing",
+        "t": "Produire une machine"
+      },
+      {
+        "ic": "layers",
+        "t": "Produire de l'alliage"
+      },
+      {
+        "ic": "memory",
+        "t": "Produire un circuit"
+      },
+      {
+        "ic": "blur_on",
+        "t": "Produire du calcul quantique"
+      },
+      {
+        "ic": "computer",
+        "t": "Construire un Ordinateur quantique",
+        "win": true
+      }
+    ],
+    "bio": [
+      {
+        "ic": "compost",
+        "t": "Produire de la biomasse"
+      },
+      {
+        "ic": "biotech",
+        "t": "Produire de l'ADN"
+      },
+      {
+        "ic": "bubble_chart",
+        "t": "Produire une cellule avancée"
+      },
+      {
+        "ic": "hub",
+        "t": "Construire le Hub industriel"
+      },
+      {
+        "ic": "open_in_full",
+        "t": "Étendre l'industrie en 5×5"
+      },
+      {
+        "ic": "genetics",
+        "t": "Produire un organisme synthétique"
+      },
+      {
+        "ic": "psychology",
+        "t": "Produire une conscience organique",
+        "win": true
+      }
+    ],
+    "energie": [
+      {
+        "ic": "battery_charging_full",
+        "t": "Produire de l'énergie stable"
+      },
+      {
+        "ic": "flare",
+        "t": "Produire du plasma"
+      },
+      {
+        "ic": "diamond",
+        "t": "Produire un cristal énergétique"
+      },
+      {
+        "ic": "hub",
+        "t": "Construire le Hub industriel"
+      },
+      {
+        "ic": "open_in_full",
+        "t": "Étendre l'industrie en 5×5"
+      },
+      {
+        "ic": "scatter_plot",
+        "t": "Produire de l'antimatière"
+      },
+      {
+        "ic": "auto_awesome",
+        "t": "Construire un Réacteur stellaire",
+        "win": true
+      }
+    ]
+  },
+  "EXPAND": {
+    "4": {
+      "label": "Étendre la colonie",
+      "need": {
+        "produced": {
+          "bois": 100,
+          "pierre": 50,
+          "brique": 20,
+          "ouvrier": 10
+        },
+        "build": "centreville"
+      },
+      "cost": {
+        "brique": 30,
+        "ouvrier": 20,
+        "metal": 10
+      }
+    },
+    "5": {
+      "label": "Étendre l'industrie",
+      "need": {
+        "produced": {
+          "metal": 1,
+          "energie": 1,
+          "outil": 1
+        },
+        "build": "hub"
+      },
+      "cost": {
+        "brique": 50,
+        "ouvrier": 30,
+        "energie": 30,
+        "machine": 20
+      }
+    }
+  },
+  "EFF": [
+    1,
+    0.92,
+    0.84,
+    0.76,
+    0.68
+  ]
+}

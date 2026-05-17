@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="theme-color" content="#1a0033" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<title>Neon Highway USA</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div id="game-root">
+
+  <!-- Pseudo-3D render target -->
+  <canvas id="canvas"></canvas>
+
+  <!-- Subtle CRT / scanline overlay -->
+  <div id="crt" aria-hidden="true"></div>
+
+  <!-- ===== HUD (in-game) ===== -->
+  <div id="hud" class="hide">
+    <div class="hud-row hud-top">
+      <div class="hud-box">
+        <span class="hud-label">SCORE</span>
+        <span class="hud-val" id="hud-score">0</span>
+      </div>
+      <div class="hud-box hud-time">
+        <span class="hud-label">TIME</span>
+        <span class="hud-val" id="hud-time">45</span>
+      </div>
+      <div class="hud-box hud-right">
+        <span class="hud-label">BEST</span>
+        <span class="hud-val" id="hud-best">0</span>
+      </div>
+    </div>
+    <div class="hud-row hud-bottom">
+      <div class="hud-box">
+        <span class="hud-label">DIST</span>
+        <span class="hud-val" id="hud-dist">0<small>m</small></span>
+      </div>
+      <div class="hud-box hud-cp">
+        <span class="hud-label">STAGE</span>
+        <span class="hud-val" id="hud-stage">1/5</span>
+        <span class="hud-biome" id="hud-biome">PACIFIC COAST</span>
+      </div>
+      <div class="hud-box hud-right">
+        <span class="hud-label">SPEED</span>
+        <span class="hud-val" id="hud-speed">0<small>mph</small></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Flash banner (CHECKPOINT! / GO!) -->
+  <div id="flash" class="hide"></div>
+
+  <!-- Fork chooser: live LEFT / RIGHT destination banner -->
+  <div id="fork-ui">
+    <div class="fork-title">CHOOSE YOUR ROUTE</div>
+    <div class="fork-row">
+      <span id="fork-left" class="fork-side">◀ LEFT</span>
+      <span id="fork-right" class="fork-side">RIGHT ▶</span>
+    </div>
+  </div>
+
+  <!-- ===== Touch controls ===== -->
+  <div id="controls" class="hide">
+    <!-- Left: analog steering joystick -->
+    <div id="joy-zone" aria-label="Steering joystick">
+      <div id="joystick">
+        <span class="joy-ring"></span>
+        <div id="joy-knob"></div>
+      </div>
+    </div>
+    <!-- Right: gas / nitro / brake cluster -->
+    <div id="pedal-boost" class="pedal" aria-label="Nitro">NITRO</div>
+    <div id="pedal-brake" class="pedal" aria-label="Brake">BRAKE</div>
+    <div id="pedal-gas" class="pedal" aria-label="Accelerate">GAS</div>
+  </div>
+
+  <!-- Top-right utility buttons -->
+  <div id="util">
+    <button id="btn-mute" type="button" aria-label="Mute">&#128266;</button>
+    <button id="btn-pause" type="button" aria-label="Pause">&#10073;&#10073;</button>
+  </div>
+
+  <!-- ===== Loading screen ===== -->
+  <div id="screen-loading" class="screen">
+    <div class="logo-wrap">
+      <div class="logo">NEON&nbsp;HIGHWAY<span class="logo-usa">USA</span></div>
+    </div>
+    <div class="loading-bar"><i id="loading-fill"></i></div>
+    <div class="loading-text">LOADING&hellip;</div>
+  </div>
+
+  <!-- ===== Title screen ===== -->
+  <div id="screen-title" class="screen hide">
+    <div class="logo-wrap">
+      <div class="logo">NEON&nbsp;HIGHWAY<span class="logo-usa">USA</span></div>
+      <div class="subtitle">&#9733; ARCADE RACING &#9733; 199X &#9733;</div>
+    </div>
+    <div class="blink tap-start">TAP TO START</div>
+    <div class="hi">HI-SCORE&nbsp;<span id="title-best">0</span></div>
+    <div class="credits">GAS &middot; BRAKE &middot; NITRO &middot; STEER &mdash; BEAT THE CLOCK</div>
+  </div>
+
+  <!-- ===== Countdown screen ===== -->
+  <div id="screen-countdown" class="screen hide">
+    <div id="count-num">3</div>
+  </div>
+
+  <!-- ===== Paused screen ===== -->
+  <div id="screen-paused" class="screen hide">
+    <div class="panel">
+      <h2>PAUSED</h2>
+      <button id="btn-resume" class="arcade-btn" type="button">RESUME</button>
+      <button id="btn-quit" class="arcade-btn alt" type="button">QUIT</button>
+    </div>
+  </div>
+
+  <!-- ===== Game Over screen ===== -->
+  <div id="screen-gameover" class="screen hide">
+    <div class="panel">
+      <h2 class="go-title">GAME&nbsp;OVER</h2>
+      <div class="go-stats">
+        <div><span>SCORE</span><b id="go-score">0</b></div>
+        <div><span>DISTANCE</span><b id="go-dist">0 m</b></div>
+        <div><span>BEST</span><b id="go-best">0</b></div>
+      </div>
+      <div id="go-newbest" class="blink hide">&#9733; NEW RECORD &#9733;</div>
+      <button id="btn-again" class="arcade-btn" type="button">RACE AGAIN</button>
+    </div>
+  </div>
+
+  <!-- ===== Goal / Finish screen ===== -->
+  <div id="screen-finish" class="screen hide">
+    <div class="panel fin-panel">
+      <h2 class="fin-head" id="fin-title">GOAL A</h2>
+      <div class="fin-dest" id="fin-dest">SNOW SUMMIT</div>
+      <div class="fin-map" id="fin-map"></div>
+      <div class="go-stats">
+        <div><span>SCORE</span><b id="fin-score">0</b></div>
+        <div><span>BEST</span><b id="fin-best">0</b></div>
+      </div>
+      <div id="fin-newbest" class="blink hide">&#9733; NEW RECORD &#9733;</div>
+      <button id="btn-finagain" class="arcade-btn" type="button">RACE AGAIN</button>
+    </div>
+  </div>
+
+  <!-- ===== Rotate device overlay ===== -->
+  <div id="screen-rotate" class="screen hide">
+    <div class="rotate-icon">&#128241;</div>
+    <div class="rotate-text">TOURNE TON IPHONE<br/>EN MODE PAYSAGE</div>
+    <div class="rotate-sub">Rotate to landscape to play</div>
+  </div>
+
+</div>
+<script src="game.js"></script>
+</body>
+</html>

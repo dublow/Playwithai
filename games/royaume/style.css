@@ -1,0 +1,230 @@
+/* =========================================================
+   Royaume — thème sombre fantasy médiéval
+   ========================================================= */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg:        #140d05;
+  --bg-2:      #1d1408;
+  --panel:     #221808;
+  --panel-2:   #2c2010;
+  --line:      #4a371a;
+  --text:      #f1e6cf;
+  --muted:     #b59a6a;
+  --gold:      #e7b94f;
+  --gold-soft: #c79a3b;
+  --green:     #6fbf73;
+  --red:       #d9534f;
+  --blue:      #6fa8dc;
+  --radius:    14px;
+  --shadow:    0 6px 20px rgba(0,0,0,.45);
+}
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(1200px 600px at 50% -10%, #3a2a10 0%, var(--bg) 55%),
+    var(--bg);
+  min-height: 100vh;
+  padding-bottom: calc(40px + env(safe-area-inset-bottom));
+  line-height: 1.5;
+}
+
+b { color: var(--gold); }
+.muted { color: var(--muted); font-size: 13px; }
+
+/* ===== Barre du haut ===== */
+.topbar {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  padding-top: max(10px, env(safe-area-inset-top));
+  background: linear-gradient(180deg, #2c2010 0%, rgba(28,20,8,.96) 100%);
+  border-bottom: 2px solid var(--line);
+  box-shadow: var(--shadow);
+}
+.topbar .title {
+  font-size: 20px; font-weight: 800; letter-spacing: .5px;
+}
+.topbar .title span {
+  background: linear-gradient(90deg, var(--gold), #f6d98a);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.resources {
+  display: flex; flex: 1; flex-wrap: wrap; gap: 8px; justify-content: flex-end;
+}
+.res {
+  display: flex; align-items: baseline; gap: 6px;
+  background: var(--panel-2); border: 1px solid var(--line);
+  padding: 6px 12px; border-radius: 999px; font-size: 15px;
+  min-width: 92px;
+}
+.res b { font-variant-numeric: tabular-nums; }
+.res i { color: var(--green); font-size: 11px; font-style: normal; }
+
+/* ===== Layout ===== */
+.layout {
+  max-width: 1100px; margin: 18px auto; padding: 0 14px;
+  display: grid; gap: 16px;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 760px) {
+  .layout { grid-template-columns: 1fr 1fr; }
+  .objective, .harvest, .logs, .options { grid-column: 1 / -1; }
+}
+@media (min-width: 1040px) {
+  .layout { grid-template-columns: 1fr 1fr 1fr; }
+  .objective, .harvest { grid-column: 1 / -1; }
+  .logs { grid-column: 1 / 3; }
+  .options { grid-column: 3 / 4; }
+}
+
+/* ===== Panneaux ===== */
+.panel {
+  background: linear-gradient(180deg, var(--panel) 0%, var(--bg-2) 100%);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  box-shadow: var(--shadow);
+}
+.panel h2 {
+  font-size: 16px; margin-bottom: 12px;
+  padding-bottom: 8px; border-bottom: 1px dashed var(--line);
+  letter-spacing: .3px;
+}
+
+/* ===== Objectif ===== */
+.objective p { font-size: 15px; margin-bottom: 8px; }
+.objective small { color: var(--muted); }
+.bar {
+  height: 9px; background: #1a1206; border: 1px solid var(--line);
+  border-radius: 999px; overflow: hidden; margin: 8px 0;
+}
+.bar span {
+  display: block; height: 100%; width: 0%;
+  background: linear-gradient(90deg, var(--gold-soft), var(--gold));
+  transition: width .4s ease;
+}
+
+/* ===== Récolte manuelle ===== */
+.harvest-grid {
+  display: grid; gap: 10px;
+  grid-template-columns: repeat(3, 1fr);
+}
+@media (max-width: 520px) { .harvest-grid { grid-template-columns: 1fr; } }
+.harvest-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  font: inherit; color: var(--text); cursor: pointer;
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 12px; padding: 14px; font-size: 22px;
+  transition: transform .08s ease, background .15s ease, border-color .15s ease;
+  user-select: none;
+}
+.harvest-btn span { font-size: 13px; color: var(--muted); }
+.harvest-btn:hover { border-color: var(--gold-soft); background: #36280f; }
+.harvest-btn:active { transform: scale(.96); }
+
+/* ===== Cartes (bâtiments / unités / techs) ===== */
+.card-list { display: flex; flex-direction: column; gap: 10px; }
+.item {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 12px; padding: 12px;
+}
+.item .icon { font-size: 26px; flex-shrink: 0; width: 34px; text-align: center; }
+.item .info { flex: 1; min-width: 0; }
+.item .name { font-weight: 700; font-size: 14px; }
+.item .name small { color: var(--muted); font-weight: 400; }
+.item .desc { font-size: 12px; color: var(--muted); }
+.item .cost { font-size: 12px; margin-top: 3px; }
+.item .cost span { margin-right: 8px; white-space: nowrap; }
+.item .cost .ok { color: var(--text); }
+.item .cost .no { color: var(--red); }
+.buy-btn {
+  font: inherit; font-weight: 700; font-size: 13px; cursor: pointer;
+  color: #20160a; background: linear-gradient(180deg, var(--gold), var(--gold-soft));
+  border: none; border-radius: 10px; padding: 10px 14px; flex-shrink: 0;
+  transition: transform .08s ease, filter .15s ease;
+}
+.buy-btn:hover { filter: brightness(1.08); }
+.buy-btn:active { transform: scale(.95); }
+.buy-btn:disabled {
+  background: #3a2c14; color: var(--muted); cursor: not-allowed; filter: none;
+}
+.item.locked { opacity: .55; }
+.tag {
+  display: inline-block; font-size: 10px; font-weight: 700;
+  background: rgba(231,185,79,.16); color: var(--gold);
+  padding: 2px 7px; border-radius: 999px; margin-left: 6px;
+}
+.tag.done { background: rgba(111,191,115,.18); color: var(--green); }
+
+/* ===== Combat ===== */
+.combat .enemy {
+  background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 10px; padding: 12px; margin-bottom: 12px;
+}
+.attack-btn {
+  width: 100%; font: inherit; font-weight: 800; font-size: 16px; cursor: pointer;
+  color: #fff; background: linear-gradient(180deg, #c0392b, #922b1f);
+  border: 1px solid #e0573f; border-radius: 12px; padding: 14px;
+  transition: transform .08s ease, filter .15s ease;
+}
+.attack-btn:hover { filter: brightness(1.1); }
+.attack-btn:active { transform: scale(.97); }
+.combat .xp { margin-top: 14px; font-size: 13px; }
+#xpBar { background: linear-gradient(90deg, var(--blue), #9fc7ee); }
+
+/* ===== Journal ===== */
+.logs ul { list-style: none; max-height: 230px; overflow-y: auto; }
+.logs li {
+  font-size: 13px; padding: 6px 8px; border-bottom: 1px solid #2a1f0d;
+  color: var(--muted);
+}
+.logs li:first-child { color: var(--text); }
+.logs li b { color: var(--gold); }
+.logs li.win b { color: var(--green); }
+.logs li.lose b { color: var(--red); }
+
+/* ===== Options ===== */
+.ghost-btn, .danger-btn {
+  font: inherit; font-weight: 700; cursor: pointer; margin: 8px 8px 0 0;
+  border-radius: 10px; padding: 10px 16px; font-size: 13px;
+}
+.ghost-btn { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); }
+.ghost-btn:hover { border-color: var(--gold-soft); }
+.danger-btn { background: #3a1410; color: #ffb3ab; border: 1px solid #7a2b22; }
+.danger-btn:hover { filter: brightness(1.15); }
+
+/* ===== Notifications (toasts) ===== */
+.toasts {
+  position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+  display: flex; flex-direction: column; gap: 8px; z-index: 100;
+  width: min(420px, calc(100vw - 28px)); pointer-events: none;
+}
+.toast {
+  background: linear-gradient(180deg, #33260f, #241a0a);
+  border: 1px solid var(--gold-soft); color: var(--text);
+  border-radius: 12px; padding: 12px 14px; font-size: 14px;
+  box-shadow: var(--shadow);
+  animation: toastIn .25s ease, toastOut .4s ease 3.4s forwards;
+}
+.toast.good { border-color: var(--green); }
+.toast.bad  { border-color: var(--red); }
+.toast b { color: var(--gold); }
+@keyframes toastIn  { from { opacity:0; transform: translateY(14px); } to { opacity:1; transform: none; } }
+@keyframes toastOut { to { opacity:0; transform: translateY(14px); } }
+
+/* Petit "+1" flottant sur récolte manuelle */
+.float {
+  position: fixed; pointer-events: none; z-index: 90;
+  font-weight: 800; color: var(--gold); font-size: 18px;
+  animation: floatUp .8s ease forwards;
+}
+@keyframes floatUp {
+  from { opacity: 1; transform: translate(-50%,0); }
+  to   { opacity: 0; transform: translate(-50%,-46px); }
+}
