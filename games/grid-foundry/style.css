@@ -128,9 +128,6 @@ body{
 .chip .rate.pos{color:var(--good)} .chip .rate.neg{color:var(--warn)} .chip .rate.zero{color:var(--dim)}
 .chip.t1 .ms{color:#ffb74d}.chip.t2 .ms{color:#7ee7ff}.chip.t3 .ms{color:#c69bff}
 .chip.fin .ms{color:var(--gold)}
-.chip.harv{cursor:pointer;border-color:var(--line2)}
-.chip.harv:active{transform:scale(.95)}
-.chip.harv .ms{color:var(--acc)}
 
 /* ---------- Buttons ---------- */
 .btn{

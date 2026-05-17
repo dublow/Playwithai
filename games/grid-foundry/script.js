@@ -299,7 +299,7 @@ const SPECS = {
 
 /* ---------------------- OBJECTIVES ---------------------- */
 const OBJ_COMMON = [
-  {ic:"forest",        t:"Récolter du bois",            f:s=>s.total.bois>=10,            g:s=>`${fmt(s.total.bois||0)}/10`},
+  {ic:"forest",        t:"Produire du bois (Scierie)",  f:s=>s.total.bois>=10,            g:s=>`${fmt(s.total.bois||0)}/10`},
   {ic:"forest",        t:"Construire une Scierie",      f:s=>cnt("scierie")>=1},
   {ic:"terrain",       t:"Construire une Carrière",     f:s=>cnt("carriere")>=1},
   {ic:"water_drop",    t:"Construire un Puits",         f:s=>cnt("puits")>=1},
@@ -360,8 +360,6 @@ const effFactor = i => EFF[Math.min(i, EFF.length - 1)];
 
 /* caps voisinage */
 const CAP_SINGLE = 25, CAP_POS = 50, CAP_NEG = 40, CAP_CONS = 40;
-
-const CLICK_BASE  = {bois:3, pierre:3, nourriture:2, eau:3};  // récolte manuelle /tap
 
 /* Univers : la colonie traverse des ÈRES (pas de "Tier X") */
 const ERA   = {1:"Ère Pionnière", 2:"Ère Industrielle", 3:"Ère Avancée"};
@@ -636,12 +634,6 @@ function togglePause(b){
   log((b.paused?"Pause":"Reprise")+" : "+BUILDINGS[b.type].name);
   render();
 }
-function harvest(res){
-  const yld=CLICK_BASE[res]||3;
-  S.stock[res]=(S.stock[res]||0)+yld;
-  S.total[res]=(S.total[res]||0)+yld;
-  checkObjectives(false); render();
-}
 function tryExpand(){
   const tgt=S.gridSize+1; const e=EXPAND[tgt]; if(!e) return;
   if(!expandReady(tgt)){ toast("Conditions d'expansion non remplies",true); return; }
@@ -671,9 +663,11 @@ function chooseSpec(k){
 
 /* ===================== RENDER ===================== */
 function knownResources(){
-  const set=new Set(Object.keys(RESOURCES).filter(k=>RESOURCES[k].base));
-  for(const k in S.total) if(S.total[k]>0) set.add(k);
+  // n'afficher QUE les ressources réellement en jeu :
+  // en stock, déjà produites, ou produites/consommées par un bâtiment posé
+  const set=new Set();
   for(const k in S.stock) if(S.stock[k]>0) set.add(k);
+  for(const k in S.total) if(S.total[k]>0) set.add(k);
   S.buildings.forEach(b=>{
     const d=BUILDINGS[b.type];
     if(d.produce) Object.keys(d.produce).forEach(r=>set.add(r));
@@ -687,12 +681,11 @@ function renderResources(){
     const R=RESOURCES[k], amt=S.stock[k]||0, n=NET[k]||0;
     const cls=n>0.0001?"pos":(n<-0.0001?"neg":"zero");
     const sign=n>0.0001?"+":"";
-    const harv=R.base;
-    return `<button class="chip ${R.cls} ${harv?'harv':''}" ${harv?`data-h="${k}"`:""}>
+    return `<div class="chip ${R.cls}">
       <span class="ms">${R.icon}</span>
       <b>${fmt(amt)}</b>
       <span class="rate ${cls}">${sign}${(n).toFixed(1)}</span>
-    </button>`;
+    </div>`;
   }).join("");
 }
 function renderResHeader(){
@@ -1137,9 +1130,6 @@ function bind(){
   });
   $("#hdrClose").addEventListener("click",()=>{
     S.headerOpen=false; renderResHeader();
-  });
-  $("#resourceBar").addEventListener("click",e=>{
-    const h=e.target.closest("[data-h]"); if(h) harvest(h.dataset.h);
   });
 
   $("#expandBtn").addEventListener("click",tryExpand);
