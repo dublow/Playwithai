@@ -39,9 +39,7 @@ body{
   grid-template-columns:repeat(var(--n,3),var(--cell,64px));
   grid-template-rows:repeat(var(--n,3),var(--cell,64px));
   padding:var(--pad);max-width:100%;max-height:100%;
-  background:
-    linear-gradient(var(--line) 1px,transparent 1px) 0 0/var(--cell,64px) var(--cell,64px),
-    var(--panel2);
+  background:var(--panel2);
   border:1px solid var(--line2);border-radius:16px;
   box-shadow:inset 0 0 60px rgba(0,0,0,.5);
 }
