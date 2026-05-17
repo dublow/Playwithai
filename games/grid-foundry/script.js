@@ -148,8 +148,8 @@ const SPECS = {
     mods:{metal:1.20,outil:1.20,circuit:1.15,nourriture:0.90},
     txt:[["metal",20],["outil",20],["circuit",15],["nourriture",-10]]},
   bio:    {name:"Axe Bio / Organisme", icon:"biotech",
-    mods:{nourriture:1.20,ouvrier:1.20,biomasse:1.15,charbon:0.90},
-    txt:[["nourriture",20],["ouvrier",20],["biomasse",15],["charbon",-10]]},
+    mods:{nourriture:1.20,equipe:1.20,biomasse:1.15,metal:0.90},
+    txt:[["nourriture",20],["equipe",20],["biomasse",15],["metal",-10]]},
   energie:{name:"Axe Énergie / Fusion", icon:"flare",
     mods:{energie:1.20,charbon:1.20,plasma:1.15,bois:0.90},
     txt:[["energie",20],["charbon",20],["plasma",15],["bois",-10]]},
@@ -164,7 +164,8 @@ const OBJ_COMMON = [
   {ic:"agriculture",   t:"Construire une Ferme",        f:s=>cnt("ferme")>=1},
   {ic:"local_fire_department",t:"Produire du charbon",  f:s=>s.total.charbon>=10,         g:s=>`${fmt(s.total.charbon||0)}/10`},
   {ic:"grid_view",     t:"Produire des briques",        f:s=>s.total.brique>=10,          g:s=>`${fmt(s.total.brique||0)}/10`},
-  {ic:"engineering",   t:"Produire des ouvriers",       f:s=>s.total.ouvrier>=10,         g:s=>`${fmt(s.total.ouvrier||0)}/10`},
+  {ic:"construction",  t:"Former des bâtisseurs",        f:s=>(s.workers?.batisseurs||0)+(s.total?.batisseur||0)>=10,
+    g:s=>`${fmt((s.workers?.batisseurs||0)+(s.total?.batisseur||0))}/10`},
   {ic:"location_city", t:"Construire le Centre-ville",  f:s=>cnt("centreville")>=1},
   {ic:"open_in_full",  t:"Étendre la colonie en 4×4",   f:s=>s.gridSize>=4},
   {ic:"hub",           t:"Choisir une spécialisation",  f:s=>!!s.spec},
@@ -423,9 +424,14 @@ function placeBuilding(type,r,c){
 }
 function destroyBuilding(b){
   const def=BUILDINGS[b.type];
-  const refund={};
-  for(const k in def.cost){ refund[k]=Math.floor(def.cost[k]*0.5);
-    S.stock[k]=(S.stock[k]||0)+refund[k]; }
+  // Rembourser les ressources (50%)
+  for(const k in def.cost){
+    S.stock[k]=(S.stock[k]||0)+Math.floor(def.cost[k]*0.5);
+  }
+  // Rembourser l'équipe affectée dans le pool
+  if(b.crew && b.crew > 0){
+    S.workers.equipe = (S.workers.equipe||0) + b.crew;
+  }
   S.buildings=S.buildings.filter(x=>x.id!==b.id);
   log("Démoli : "+def.name+" (remboursement 50%)","warn");
   UI.inspect=null; checkObjectives(false); render();
@@ -647,24 +653,6 @@ function renderBuildDetail(type){
       <span>Ressources insuffisantes — il manque les ressources en <b>rouge</b>.</span></div>`;
   }
   h+=ioLine(d.cost,"cost")+ioLine(d.consume,"cons")+ioLine(d.produce,"prod");
-  const rules=ADJACENCY[type]||[];
-  if(rules.length){
-    h+=`<div class="sec-title">Voisinage possible</div><div class="adj-list">`;
-    rules.forEach(rl=>{
-      const who=rl.tgt==="nb"?" → voisin":"";
-      const txt=rl.cons?`-${rl.pct}% conso ${rname(rl.res)}`
-        :`${rl.pct>0?'+':''}${rl.pct}% ${rname(rl.res)}${who}`;
-      h+=`<div class="off">○ proche ${BUILDINGS[rl.near].name} : ${txt}</div>`;
-    });
-    h+=`</div>`;
-  }
-  const chs=CHAINS.filter(c=>c.mid===type||c.a===type||c.c===type);
-  if(chs.length){
-    h+=`<div class="sec-title">Chaînes</div><div class="adj-list">`;
-    chs.forEach(c=>h+=`<div class="off">○ ${c.name} : ${BUILDINGS[c.a].name} – ${
-      BUILDINGS[c.mid].name} – ${BUILDINGS[c.c].name} → +${c.pct}% ${rname(c.res)}</div>`);
-    h+=`</div>`;
-  }
   h+=`<div class="row-btn">
     <button class="btn" data-act="cancel"><span class="ms">close</span>Annuler</button>
     <button class="btn primary" data-act="build" ${(locked||cant)?"disabled":""}>
@@ -674,8 +662,6 @@ function renderBuildDetail(type){
 }
 function renderInspect(b){
   const d=BUILDINGS[b.type];
-  const bonus=computeBonuses(S.buildings.map(x=>({id:x.id,type:x.type,r:x.r,c:x.c})));
-  const bo=bonus[b.id];
   const eff=b._eff||1;
   const idle=!!d.consume && !b.paused && (b._starve||0)>=STARVE_SHOW;
   let h=`<div class="dtl">
@@ -689,35 +675,17 @@ function renderInspect(b){
      b.paused?"En pause":(idle?"À l'arrêt (ressources)":"En activité")}</b></div>`;
   h+=`<div class="kv"><span>Rendement (exemplaire)</span><b>${Math.round(eff*100)}%</b></div>`;
   if(d.produce) for(const k in d.produce){
-    const m=prodMult(bo,k)*specMult(k)*eff;
     h+=`<div class="kv"><span>Production ${rname(k)}</span>
-      <b class="${m>=1?'pos':'neg'}">${(d.produce[k]*m*RATE).toFixed(2)}/s (${m>=1?'+':''}${Math.round((m-1)*100)}%)</b></div>`;
+      <b class="pos">${(d.produce[k]*(b._eff||1)*RATE).toFixed(2)}/s</b></div>`;
   }
   if(d.consume) for(const k in d.consume){
-    const cm=consMult(bo,k);
     h+=`<div class="kv"><span>Conso ${rname(k)}</span>
-      <b class="neg">-${(d.consume[k]*cm*RATE).toFixed(2)}/s${cm<1?` (${Math.round((cm-1)*100)}%)`:""}</b></div>`;
-  }
-  // voisinage actif
-  const rules=ADJACENCY[b.type]||[];
-  if(rules.length){
-    const ns=neigh(b.r,b.c).map(n=>n.type);
-    h+=`<div class="sec-title">Voisinage</div><div class="adj-list">`;
-    rules.forEach(rl=>{
-      const active=ns.includes(rl.near);
-      const who=rl.tgt==="nb"?"→ voisin":"";
-      const txt=rl.cons?`-${rl.pct}% conso ${rname(rl.res)}`
-        :`${rl.pct>0?'+':''}${rl.pct}% ${rname(rl.res)} ${who}`;
-      h+=`<div class="${active?'on':'off'}">${active?'●':'○'} proche ${BUILDINGS[rl.near].name} : ${txt}</div>`;
-    });
-    h+=`</div>`;
+      <b class="neg">-${(d.consume[k]*(b._eff||1)*RATE).toFixed(2)}/s</b></div>`;
   }
   h+=`<div class="row-btn">
-    <button class="btn" id="moveBtn"><span class="ms">open_with</span>Déplacer</button>
     <button class="btn" id="pauseBtn"><span class="ms">${b.paused?'play_arrow':'pause'}</span>${b.paused?'Reprendre':'Pause'}</button>
     <button class="btn danger" id="destroyBtn"><span class="ms">delete</span>Démolir</button>
-  </div>
-  <p class="empty-note" style="padding:8px 0 0">Astuce : appui long sur un bâtiment pour le déplacer.</p></div>`;
+  </div></div>`;
   return h;
 }
 function renderSheet(){
