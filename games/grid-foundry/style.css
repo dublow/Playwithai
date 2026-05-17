@@ -95,7 +95,9 @@ body{
   transition:transform .28s ease,opacity .2s ease;
 }
 .res-header.open{transform:none;opacity:1;pointer-events:auto}
-.rh-top{display:flex;align-items:center;gap:10px;margin-bottom:9px}
+.rh-top{display:flex;align-items:center;gap:10px;margin-bottom:9px;
+  /* laisse la place à la FAB (haut-droite) pour ne pas masquer l'engrenage */
+  padding-right:56px}
 .rh-obj{flex:1;min-width:0;display:flex;align-items:center;gap:9px}
 .rh-obj>.ms{color:var(--acc);font-size:21px;flex:0 0 auto}
 .rh-obj>div{min-width:0}
@@ -104,7 +106,7 @@ body{
 .rh-obj b{display:block;font-size:14px;margin-top:1px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rh-obj .prog{margin-left:auto;color:var(--dim);font-size:11px;
-  font-variant-numeric:tabular-nums;flex:0 0 auto;padding-right:46px}
+  font-variant-numeric:tabular-nums;flex:0 0 auto}
 .rh-act{display:flex;align-items:center;gap:6px;flex:0 0 auto}
 .rh-act #hdrClose{display:none}     /* la FAB sert aussi à fermer */
 

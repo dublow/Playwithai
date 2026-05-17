@@ -724,6 +724,8 @@ function renderResHeader(){
   const hdr=$("#resHeader"), fab=$("#hdrToggle");
   hdr.classList.toggle("open",!!S.headerOpen);
   fab.classList.toggle("on",!!S.headerOpen);
+  fab.innerHTML=`<span class="ms">${S.headerOpen?"close":"tune"}</span>`;
+  fab.title=S.headerOpen?"Fermer":"Ressources, objectif & réglages";
   // recadre la grille SOUS le header quand il est ouvert (sinon il la masque)
   requestAnimationFrame(()=>{
     const hh = S.headerOpen ? (hdr.offsetHeight||0) : 0;
