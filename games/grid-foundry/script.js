@@ -801,12 +801,19 @@ function renderGrid(){
   if(html!==_gridHTML){ g.innerHTML=html; _gridHTML=html; }
 }
 
+function fmtRate(x){
+  x=Math.round(x*100)/100;
+  return (Number.isInteger(x)?x:x.toFixed(2))+"/s";
+}
 function ioLine(obj,kind){
+  // kind "cost" = montant entier ; "prod"/"cons" = débit réel /s (× RATE)
   if(!obj||!Object.keys(obj).length) return "";
+  const flow = kind!=="cost";
   return `<div class="io ${kind}">`+Object.entries(obj).map(([k,v])=>{
     let vc="v";
     if(kind==="cost"&&(S.stock[k]||0)<v) vc="v no";
-    return `<span class="grp"><span class="ms">${RESOURCES[k].icon}</span><span class="${vc}">${v}</span> ${rname(k)}</span>`;
+    const disp = flow ? fmtRate(v*RATE) : v;
+    return `<span class="grp"><span class="ms">${RESOURCES[k].icon}</span><span class="${vc}">${disp}</span> ${rname(k)}</span>`;
   }).join("")+`</div>`;
 }
 /* Découverte progressive : les 4 bâtiments de base sont toujours visibles ;
@@ -921,12 +928,12 @@ function renderInspect(b){
   if(d.produce) for(const k in d.produce){
     const m=prodMult(bo,k)*specMult(k)*eff;
     h+=`<div class="kv"><span>Production ${rname(k)}</span>
-      <b class="${m>=1?'pos':'neg'}">${(d.produce[k]*m).toFixed(2)}/s (${m>=1?'+':''}${Math.round((m-1)*100)}%)</b></div>`;
+      <b class="${m>=1?'pos':'neg'}">${(d.produce[k]*m*RATE).toFixed(2)}/s (${m>=1?'+':''}${Math.round((m-1)*100)}%)</b></div>`;
   }
   if(d.consume) for(const k in d.consume){
     const cm=consMult(bo,k);
     h+=`<div class="kv"><span>Conso ${rname(k)}</span>
-      <b class="neg">-${(d.consume[k]*cm).toFixed(2)}/s${cm<1?` (${Math.round((cm-1)*100)}%)`:""}</b></div>`;
+      <b class="neg">-${(d.consume[k]*cm*RATE).toFixed(2)}/s${cm<1?` (${Math.round((cm-1)*100)}%)`:""}</b></div>`;
   }
   // voisinage actif
   const rules=ADJACENCY[b.type]||[];
