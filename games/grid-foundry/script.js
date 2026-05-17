@@ -373,7 +373,7 @@ let S;
 function freshState(){
   return {
     gridSize:3, tierUnlocked:1, spec:null,
-    stock:{bois:25, pierre:15}, total:{}, won:false,
+    stock:{bois:40, pierre:20, eau:8}, total:{}, won:false,
     reserve:{bois:RESERVE_MAX.bois, pierre:RESERVE_MAX.pierre,
              nourriture:RESERVE_MAX.nourriture, eau:RESERVE_MAX.eau},
     buildings:[], nextOrder:1,
